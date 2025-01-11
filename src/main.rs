@@ -1,5 +1,6 @@
-mod cpu;
+#![crate_name = "rust_boy"]
 
+mod cpu;
 use cpu::Cpu;
 
 fn main() {
