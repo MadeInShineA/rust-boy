@@ -23,8 +23,22 @@ pub struct Type2InstructionHandler {}
 
 impl Type2InstructionHandler {
     fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
-        registers.c = 12;
-        println!("Type 2 instruction: {instruction:08b}")
+        println!("Type 2 instruction: {instruction:08b}");
+        let op_code: u8 = (instruction >> 3) & 0b00011111;
+        let operand: u8 = instruction & 0b00000111;
+
+        println!("Op code: {op_code:05b} Operand: {operand:03b}");
+        match op_code {
+            0b10000 => println!("add"),
+            0b10001 => println!("adc"),
+            0b10010 => println!("sub"),
+            0b10011 => println!("sbc"),
+            0b10100 => println!("and"),
+            0b10101 => println!("xor"),
+            0b10110 => println!("or"),
+            0b10111 => println!("cp"),
+            _ => println!("Unknown op_code"),
+        }
     }
 }
 
