@@ -1,42 +1,47 @@
 #[derive(Debug, Default)]
-struct Type0InstructionHandler {}
+pub struct Type0InstructionHandler {}
 
 impl Type0InstructionHandler {
-    fn handle_instruction(&self, instruction: u8) {
+    fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
+        registers.a = 12;
         println!("Type 0 instruction: {instruction:08b}")
     }
 }
 
 #[derive(Debug, Default)]
-struct Type1InstructionHandler {}
+pub struct Type1InstructionHandler {}
 
 impl Type1InstructionHandler {
-    fn handle_instruction(&self, instruction: u8) {
+    fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
+        registers.b = 12;
         println!("Type 1 instruction: {instruction:08b}")
     }
 }
 
 #[derive(Debug, Default)]
-struct Type2InstructionHandler {}
+pub struct Type2InstructionHandler {}
 
 impl Type2InstructionHandler {
-    fn handle_instruction(&self, instruction: u8) {
+    fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
+        registers.c = 12;
         println!("Type 2 instruction: {instruction:08b}")
     }
 }
 
 #[derive(Debug, Default)]
-struct Type3InstructionHandler {}
+pub struct Type3InstructionHandler {}
 
 impl Type3InstructionHandler {
-    fn handle_instruction(&self, instruction: u8) {
+    fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
+        registers.d = 12;
         println!("Type 3 instruction: {instruction:08b}")
     }
 }
 
 #[derive(Debug, Default)]
-struct Registers {
+pub struct Registers {
     a: u8,
+    f: u8,
     b: u8,
     c: u8,
     d: u8,
@@ -65,44 +70,29 @@ pub struct Cpu {
 }
 
 impl Cpu {
-    fn handle_instruction(&self, instruction: u8) {
+    pub fn handle_instruction(&mut self, instruction: u8) {
         match instruction {
             0b00000000..=0b00111111 => self
                 .type0_instruction_handler
-                .handle_instruction(instruction),
+                .handle_instruction(&mut self.registers, instruction),
 
             0b01000000..=0b01111111 => self
                 .type1_instruction_handler
-                .handle_instruction(instruction),
+                .handle_instruction(&mut self.registers, instruction),
 
             0b10000000..=0b10111111 => self
                 .type2_instruction_handler
-                .handle_instruction(instruction),
+                .handle_instruction(&mut self.registers, instruction),
 
             0b11000000..=0b11111111 => self
                 .type3_instruction_handler
-                .handle_instruction(instruction),
+                .handle_instruction(&mut self.registers, instruction),
         }
     }
 
-    pub fn run(&self) {
-        for instruction in self.instructions.iter() {
-            self.handle_instruction(*instruction);
+    pub fn run(&mut self) {
+        for instruction in self.instructions.clone() {
+            self.handle_instruction(instruction);
         }
     }
-}
-
-fn main() {
-    let instructions: Vec<u8> = Vec::from([0b00000001, 0b01000111, 0b10101010, 0b11001110]);
-
-    let cpu: Cpu = Cpu {
-        instructions,
-        ..Cpu::default()
-    };
-
-    for instruction in cpu.instructions.iter() {
-        cpu.handle_instruction(*instruction);
-    }
-
-    println!("{:?}", cpu);
 }
