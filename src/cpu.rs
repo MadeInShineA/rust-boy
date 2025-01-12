@@ -4,7 +4,7 @@ pub struct Type0InstructionHandler {}
 impl Type0InstructionHandler {
     fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
         registers.a = 12;
-        println!("Type 0 instruction: {instruction:08b}")
+        println!("Type 0 instruction: {instruction:08b}");
     }
 }
 
@@ -91,8 +91,9 @@ impl Cpu {
     }
 
     pub fn run(&mut self) {
-        for instruction in self.instructions.clone() {
-            self.handle_instruction(instruction);
+        while self.registers.pc < self.instructions.len() as u16 {
+            self.handle_instruction(self.instructions[self.registers.pc as usize]);
+            self.registers.pc += 1
         }
     }
 }
