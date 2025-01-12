@@ -28,16 +28,41 @@ impl Type2InstructionHandler {
         let operand: u8 = instruction & 0b00000111;
 
         println!("Op code: {op_code:05b} Operand: {operand:03b}");
-        match op_code {
-            0b10000 => println!("add"),
-            0b10001 => println!("adc"),
-            0b10010 => println!("sub"),
-            0b10011 => println!("sbc"),
-            0b10100 => println!("and"),
-            0b10101 => println!("xor"),
-            0b10110 => println!("or"),
-            0b10111 => println!("cp"),
-            _ => println!("Unknown op_code"),
+        if let RegisterValue::U8(r8_register_value) = registers.get_r8_register(operand) {
+            // TODO Add the correct Flags
+            match op_code {
+                0b10000 => {
+                    println!("add");
+                    registers.a += r8_register_value
+                    // TODO Add [hl] handling
+                }
+                0b10001 => println!("adc"),
+                0b10010 => {
+                    println!("sub");
+                    registers.a -= r8_register_value;
+                    // TODO Add [hl handling]
+                }
+                0b10011 => println!("sbc"),
+                0b10100 => {
+                    println!("and");
+                    registers.a &= r8_register_value;
+                    // TODO Add [hl] handling
+                }
+                0b10101 => {
+                    println!("xor");
+                    registers.a ^= r8_register_value;
+                    // TODO Add [hl] handling
+                }
+                0b10110 => {
+                    println!("or");
+                    registers.a |= r8_register_value;
+                    // TODO Add [hl] handling
+                }
+                0b10111 => println!("cp"),
+                _ => panic!("Unknown op_code"),
+            }
+        } else {
+            panic!("Unexpected RegisterValue: Expected RegisterValue::U8")
         }
     }
 }
@@ -64,6 +89,33 @@ pub struct Registers {
     l: u8,
     sp: u16,
     pc: u16,
+}
+
+enum RegisterValue {
+    U8(u8),
+    U16(u16),
+}
+
+impl Registers {
+    fn get_r8_register(&self, register: u8) -> RegisterValue {
+        match register {
+            0 => RegisterValue::U8(self.b),
+            1 => RegisterValue::U8(self.c),
+            2 => RegisterValue::U8(self.d),
+            3 => RegisterValue::U8(self.e),
+            4 => RegisterValue::U8(self.h),
+            5 => RegisterValue::U8(self.l),
+            // What's [hl] ?
+            // 6 => self.get_value_at_hl(),
+            7 => RegisterValue::U8(self.a),
+            _ => panic!("Invalid register"),
+        }
+    }
+
+    fn get_value_at_hl(&self) -> RegisterValue {
+        let res: u16 = ((self.h as u16) << 8) | (self.l as u16);
+        RegisterValue::U16(res)
+    }
 }
 
 enum Flags {
