@@ -137,22 +137,24 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn handle_instruction(&mut self, instruction: u8) {
-        match instruction {
-            0b00000000..=0b00111111 => self
+        let op_type: u8 = instruction >> 6;
+        match op_type {
+            0b00 => self
                 .type0_instruction_handler
                 .handle_instruction(&mut self.registers, instruction),
 
-            0b01000000..=0b01111111 => self
+            0b01 => self
                 .type1_instruction_handler
                 .handle_instruction(&mut self.registers, instruction),
 
-            0b10000000..=0b10111111 => self
+            0b10 => self
                 .type2_instruction_handler
                 .handle_instruction(&mut self.registers, instruction),
 
-            0b11000000..=0b11111111 => self
+            0b11 => self
                 .type3_instruction_handler
                 .handle_instruction(&mut self.registers, instruction),
+            _ => panic!("Unknown operation type"),
         }
     }
 
