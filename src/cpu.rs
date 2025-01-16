@@ -29,20 +29,30 @@ impl Type2InstructionHandler {
 
         println!("Op code: {op_code:05b} Operand: {operand:03b}");
         if let RegisterValue::U8(r8_register_value) = registers.get_r8_register(operand) {
-            // TODO Add the correct Flags
+            let old_a_value: u8 = registers.a;
+
             match op_code {
                 0b10000 => {
                     println!("add");
-                    registers.a += r8_register_value
+
+                    registers.a += r8_register_value;
                     // TODO Add [hl] handling
                 }
-                0b10001 => println!("adc"),
+                0b10001 => {
+                    println!("adc");
+                    registers.a += r8_register_value + Flags::C as u8
+                    // TODO Add [hl] handling
+                }
                 0b10010 => {
                     println!("sub");
                     registers.a -= r8_register_value;
                     // TODO Add [hl handling]
                 }
-                0b10011 => println!("sbc"),
+                0b10011 => {
+                    println!("sbc");
+                    registers.a -= r8_register_value - Flags::C as u8
+                    // TODO Add [hl] handling
+                }
                 0b10100 => {
                     println!("and");
                     registers.a &= r8_register_value;
@@ -61,6 +71,10 @@ impl Type2InstructionHandler {
                 0b10111 => println!("cp"),
                 _ => panic!("Unknown op_code"),
             }
+
+            let new_a_value: u8 = registers.a;
+
+            registers.set_flags_for_r8_opperation(old_a_value, new_a_value);
         } else {
             panic!("Unexpected RegisterValue: Expected RegisterValue::U8")
         }
@@ -116,13 +130,42 @@ impl Registers {
         let res: u16 = ((self.h as u16) << 8) | (self.l as u16);
         RegisterValue::U16(res)
     }
+
+    fn set_flags_for_r8_opperation(&mut self, old_value: u8, new_value: u8) {
+        // Reset the Flags
+        self.f = 0b00000000;
+
+        let bit_3_from_old_value: u8 = old_value >> 3 & 0b00000001;
+        let bit_7_from_old_value: u8 = old_value >> 7 & 0b00000001;
+
+        let bit_3_from_new_value: u8 = new_value >> 3 & 0b00000001;
+        let bit_7_from_new_value: u8 = new_value >> 7 & 0b00000001;
+
+        if new_value == 0 {
+            self.f |= Flags::Z as u8
+        }
+
+        if new_value < old_value {
+            self.f |= Flags::N as u8
+        }
+
+        // If bit 3 carry
+        if bit_3_from_old_value == 1 && bit_3_from_new_value == 0 {
+            self.f |= Flags::H as u8
+        }
+
+        // If bit 7 carry
+        if bit_7_from_old_value == 1 && bit_7_from_new_value == 0 {
+            self.f |= Flags::C as u8
+        }
+    }
 }
 
 enum Flags {
-    C = 0b0001000,
-    H = 0b0010000,
-    N = 0b0100000,
-    Z = 0b1000000,
+    C = 0b0001000, // Carry flag (bit 7 or 15)
+    H = 0b0010000, // Half carry flag (bit 3 or 11)
+    N = 0b0100000, // Substraction flag
+    Z = 0b1000000, // Zero flag
 }
 
 #[derive(Debug, Default)]
