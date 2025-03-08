@@ -1,3 +1,5 @@
+use crate::memory::Memory;
+
 #[derive(Debug, Default)]
 pub struct Type0InstructionHandler {}
 
@@ -119,16 +121,15 @@ impl Registers {
             3 => RegisterValue::U8(self.e),
             4 => RegisterValue::U8(self.h),
             5 => RegisterValue::U8(self.l),
-            // What's [hl] ?
-            // 6 => self.get_value_at_hl(),
+            6 => self.get_memory_value_at_hl(),
             7 => RegisterValue::U8(self.a),
             _ => panic!("Invalid register"),
         }
     }
 
-    fn get_value_at_hl(&self) -> RegisterValue {
-        let res: u16 = ((self.h as u16) << 8) | (self.l as u16);
-        RegisterValue::U16(res)
+    fn get_memory_value_at_hl(&self, memory: Memory) -> RegisterValue {
+        let memory_address: u16 = (self.h as u16) << 8 | self.l as u16;
+        RegisterValue::U8(memory.memory[memory_address])
     }
 
     fn set_flags_for_r8_opperation(&mut self, old_value: u8, new_value: u8) {
@@ -172,6 +173,7 @@ enum Flags {
 pub struct Cpu {
     pub instructions: Vec<u8>,
     pub registers: Registers,
+    pub memory: Memory,
     pub type0_instruction_handler: Type0InstructionHandler,
     pub type1_instruction_handler: Type1InstructionHandler,
     pub type2_instruction_handler: Type2InstructionHandler,
