@@ -27,62 +27,63 @@ impl Type1InstructionHandler {
 pub struct Type2InstructionHandler {}
 
 impl Type2InstructionHandler {
-    fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
+    fn handle_instruction(&self, instruction: u8, registers: &mut Registers, memory: &Memory) {
         println!("Type 2 instruction: {instruction:08b}");
         let op_code: u8 = (instruction >> 3) & 0b00011111;
         let operand: u8 = instruction & 0b00000111;
 
         println!("Op code: {op_code:05b} Operand: {operand:03b}");
-        if let RegisterValue::U8(r8_register_value) = registers.get_r8_register(operand) {
-            let old_a_value: u8 = registers.a;
+        let r8_register_value = registers.get_r8_register_value(operand, memory);
 
-            match op_code {
-                0b10000 => {
-                    println!("add");
+        let old_a_value: u8 = registers.a;
 
-                    registers.a += r8_register_value;
-                    // TODO Add [hl] handling
-                }
-                0b10001 => {
-                    println!("adc");
-                    registers.a += r8_register_value + Flags::C as u8
-                    // TODO Add [hl] handling
-                }
-                0b10010 => {
-                    println!("sub");
-                    registers.a -= r8_register_value;
-                    // TODO Add [hl handling]
-                }
-                0b10011 => {
-                    println!("sbc");
-                    registers.a -= r8_register_value - Flags::C as u8
-                    // TODO Add [hl] handling
-                }
-                0b10100 => {
-                    println!("and");
-                    registers.a &= r8_register_value;
-                    // TODO Add [hl] handling
-                }
-                0b10101 => {
-                    println!("xor");
-                    registers.a ^= r8_register_value;
-                    // TODO Add [hl] handling
-                }
-                0b10110 => {
-                    println!("or");
-                    registers.a |= r8_register_value;
-                    // TODO Add [hl] handling
-                }
-                0b10111 => println!("cp"),
-                _ => panic!("Unknown op_code"),
+        match op_code {
+            0b10000 => {
+                // add
+                println!("add");
+
+                registers.a += r8_register_value;
             }
-
-            let new_a_value: u8 = registers.a;
-
-            registers.set_flags_for_r8_opperation(old_a_value, new_a_value);
-        } else {
-            panic!("Unexpected RegisterValue: Expected RegisterValue::U8")
+            0b10001 => {
+                // adc
+                println!("adc");
+                registers.a += r8_register_value + Flags::C as u8
+            }
+            0b10010 => {
+                // sub
+                println!("sub");
+                registers.a -= r8_register_value;
+            }
+            0b10011 => {
+                // sbc
+                println!("sbc");
+                registers.a -= r8_register_value - Flags::C as u8
+            }
+            0b10100 => {
+                // and
+                println!("and");
+                registers.a &= r8_register_value;
+            }
+            0b10101 => {
+                // xor
+                println!("xor");
+                registers.a ^= r8_register_value;
+            }
+            0b10110 => {
+                // or
+                println!("or");
+                registers.a |= r8_register_value;
+            }
+            0b10111 => {
+                // cp
+                println!("cp")
+            }
+            _ => panic!("Unknown op_code"),
         }
+
+        let new_a_value: u8 = registers.a;
+
+        registers.set_flags_for_r8_opperation(old_a_value, new_a_value);
     }
 }
 
@@ -120,28 +121,23 @@ impl fmt::Debug for Registers {
     }
 }
 
-enum RegisterValue {
-    U8(u8),
-    U16(u16),
-}
-
 impl Registers {
-    fn get_r8_register(&self, register: u8) -> RegisterValue {
+    fn get_r8_register_value(&self, register: u8, memory: &Memory) -> u8 {
         match register {
-            0 => RegisterValue::U8(self.b),
-            1 => RegisterValue::U8(self.c),
-            2 => RegisterValue::U8(self.d),
-            3 => RegisterValue::U8(self.e),
-            4 => RegisterValue::U8(self.h),
-            5 => RegisterValue::U8(self.l),
-            // 6 => This is to get the value at memory address [hl]
-            7 => RegisterValue::U8(self.a),
+            0 => self.b,
+            1 => self.c,
+            2 => self.d,
+            3 => self.e,
+            4 => self.h,
+            5 => self.l,
+            6 => self.get_memory_value_at_hl(memory),
+            7 => self.a,
             _ => panic!("Invalid register"),
         }
     }
 
-    fn get_memory_value_at_hl(&self, memory: Memory) -> u8 {
-        let memory_address: u16 = (self.h as u16) << 8 | self.l as u16;
+    fn get_memory_value_at_hl(&self, memory: &Memory) -> u8 {
+        let memory_address: u16 = ((self.h as u16) << 8) | (self.l as u16);
 
         if memory_address < memory.memory.len() as u16 {
             memory.memory[memory_address as usize]
@@ -154,11 +150,11 @@ impl Registers {
         // Reset the Flags
         self.f = 0b00000000;
 
-        let bit_3_from_old_value: u8 = old_value >> 3 & 0b00000001;
-        let bit_7_from_old_value: u8 = old_value >> 7 & 0b00000001;
+        let bit_3_from_old_value: u8 = (old_value >> 3) & 0b00000001;
+        let bit_7_from_old_value: u8 = (old_value >> 7) & 0b00000001;
 
-        let bit_3_from_new_value: u8 = new_value >> 3 & 0b00000001;
-        let bit_7_from_new_value: u8 = new_value >> 7 & 0b00000001;
+        let bit_3_from_new_value: u8 = (new_value >> 3) & 0b00000001;
+        let bit_7_from_new_value: u8 = (new_value >> 7) & 0b00000001;
 
         if new_value == 0 {
             self.f |= Flags::Z as u8
@@ -220,9 +216,11 @@ impl Cpu {
                 .type1_instruction_handler
                 .handle_instruction(&mut self.registers, instruction),
 
-            0b10 => self
-                .type2_instruction_handler
-                .handle_instruction(&mut self.registers, instruction),
+            0b10 => self.type2_instruction_handler.handle_instruction(
+                instruction,
+                &mut self.registers,
+                &self.memory,
+            ),
 
             0b11 => self
                 .type3_instruction_handler
