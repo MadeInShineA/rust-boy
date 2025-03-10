@@ -17,9 +17,18 @@ impl Type0InstructionHandler {
 pub struct Type1InstructionHandler {}
 
 impl Type1InstructionHandler {
-    fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
-        registers.b = 12;
-        println!("Type 1 instruction: {instruction:08b}")
+    fn handle_instruction(&self, instruction: u8, registers: &mut Registers, memory: &mut Memory) {
+        println!("Type 1 instruction: {instruction:08b}");
+
+        // if destination_register and source_register == [hl]
+        if instruction == 0b01110110 {
+            // TODO halt instruction
+        } else {
+            let destination_register: u8 = (instruction & 0b00111000) >> 3;
+            let source_register: u8 = instruction & 0b00000111;
+            let source_register_value = registers.get_r8_register_value(source_register, memory);
+            registers.set_r8_register_value(destination_register, source_register_value, memory);
+        }
     }
 }
 
@@ -29,7 +38,7 @@ pub struct Type2InstructionHandler {}
 impl Type2InstructionHandler {
     fn handle_instruction(&self, instruction: u8, registers: &mut Registers, memory: &Memory) {
         println!("Type 2 instruction: {instruction:08b}");
-        let op_code: u8 = (instruction >> 3) & 0b00011111;
+        let op_code: u8 = (instruction & 0b11111000) >> 3;
         let operand: u8 = instruction & 0b00000111;
 
         println!("Op code: {op_code:05b} Operand: {operand:03b}");
@@ -130,20 +139,34 @@ impl Registers {
             3 => self.e,
             4 => self.h,
             5 => self.l,
-            6 => self.get_memory_value_at_hl(memory),
+            6 => {
+                let memory_address: u16 = self.get_hl_memory_address();
+                memory.get_value_at_memory_address(memory_address)
+            }
             7 => self.a,
             _ => panic!("Invalid register"),
         }
     }
 
-    fn get_memory_value_at_hl(&self, memory: &Memory) -> u8 {
-        let memory_address: u16 = ((self.h as u16) << 8) | (self.l as u16);
-
-        if memory_address < memory.memory.len() as u16 {
-            memory.memory[memory_address as usize]
-        } else {
-            panic!("Memory address out of bound")
+    fn set_r8_register_value(&mut self, register: u8, value: u8, memory: &mut Memory) {
+        match register {
+            0 => self.b = value,
+            1 => self.c = value,
+            2 => self.d = value,
+            3 => self.e = value,
+            4 => self.h = value,
+            5 => self.l = value,
+            6 => {
+                let memory_address: u16 = self.get_hl_memory_address();
+                memory.set_value_at_memory_address(memory_address, value);
+            }
+            7 => self.a = value,
+            _ => panic!("Invalid register"),
         }
+    }
+
+    fn get_hl_memory_address(&self) -> u16 {
+        ((self.h as u16) << 8) | (self.l as u16)
     }
 
     fn set_flags_for_r8_opperation(&mut self, old_value: u8, new_value: u8) {
@@ -212,9 +235,11 @@ impl Cpu {
                 .type0_instruction_handler
                 .handle_instruction(&mut self.registers, instruction),
 
-            0b01 => self
-                .type1_instruction_handler
-                .handle_instruction(&mut self.registers, instruction),
+            0b01 => self.type1_instruction_handler.handle_instruction(
+                instruction,
+                &mut self.registers,
+                &mut self.memory,
+            ),
 
             0b10 => self.type2_instruction_handler.handle_instruction(
                 instruction,
