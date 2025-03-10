@@ -1,4 +1,5 @@
-use core::panic;
+use core::{fmt, panic};
+use std::fmt::Debug;
 
 use crate::memory::Memory;
 
@@ -95,7 +96,7 @@ impl Type3InstructionHandler {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Registers {
     a: u8,
     f: u8,
@@ -107,6 +108,16 @@ pub struct Registers {
     l: u8,
     sp: u16,
     pc: u16,
+}
+
+impl fmt::Debug for Registers {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "AF:  {:#04X} {:#04X}\nBC:  {:#04X} {:#04X}\nDE:  {:#04X} {:#04X}\nHL:  {:#04X} {:#04X}\nSP:  {:#06X}\nPC:  {:#06X}",
+            self.a, self.f, self.b, self.c, self.d, self.e, self.h, self.l, self.sp, self.pc
+        )
+    }
 }
 
 enum RegisterValue {
@@ -176,7 +187,7 @@ enum Flags {
     Z = 0b1000000, // Zero flag
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Cpu {
     pub instructions: Vec<u8>,
     pub registers: Registers,
@@ -185,6 +196,16 @@ pub struct Cpu {
     pub type1_instruction_handler: Type1InstructionHandler,
     pub type2_instruction_handler: Type2InstructionHandler,
     pub type3_instruction_handler: Type3InstructionHandler,
+}
+
+impl Debug for Cpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "========== CPU ==========\n===== Instructions =====\n{:?}\n===== Registers =====\n{:?}\n===== Memory =====\n{:?}",
+            self.instructions, self.registers, self.memory
+        )
+    }
 }
 
 impl Cpu {
