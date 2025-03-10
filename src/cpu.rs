@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::memory::Memory;
 
 #[derive(Debug, Default)]
@@ -121,15 +123,20 @@ impl Registers {
             3 => RegisterValue::U8(self.e),
             4 => RegisterValue::U8(self.h),
             5 => RegisterValue::U8(self.l),
-            6 => self.get_memory_value_at_hl(),
+            // 6 => This is to get the value at memory address [hl]
             7 => RegisterValue::U8(self.a),
             _ => panic!("Invalid register"),
         }
     }
 
-    fn get_memory_value_at_hl(&self, memory: Memory) -> RegisterValue {
+    fn get_memory_value_at_hl(&self, memory: Memory) -> u8 {
         let memory_address: u16 = (self.h as u16) << 8 | self.l as u16;
-        RegisterValue::U8(memory.memory[memory_address])
+
+        if memory_address < memory.memory.len() as u16 {
+            memory.memory[memory_address as usize]
+        } else {
+            panic!("Memory address out of bound")
+        }
     }
 
     fn set_flags_for_r8_opperation(&mut self, old_value: u8, new_value: u8) {
