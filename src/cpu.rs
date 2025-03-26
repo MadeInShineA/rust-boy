@@ -1,5 +1,5 @@
 use core::{fmt, panic};
-use std::fmt::Debug;
+use std::{fmt::Debug, ops::BitOrAssign};
 
 use crate::memory::Memory;
 
@@ -7,7 +7,12 @@ use crate::memory::Memory;
 pub struct Type0InstructionHandler {}
 
 impl Type0InstructionHandler {
-    fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
+    fn handle_instruction(
+        &self,
+        instruction: u8,
+        cycle_counter: &mut u64,
+        registers: &mut Registers,
+    ) {
         registers.a = 12;
         println!("Type 0 instruction: {instruction:08b}");
     }
@@ -20,6 +25,7 @@ impl Type1InstructionHandler {
     fn handle_instruction(
         &self,
         instruction: u8,
+        cycle_counter: &mut u64,
         registers: &mut Registers,
         memory: &mut Memory,
         is_halting: &mut bool,
@@ -28,12 +34,18 @@ impl Type1InstructionHandler {
 
         // if destination_register and source_register == [hl]
         if instruction == 0b01110110 {
+            // halt
+            println!("halt");
             *is_halting = true
         } else {
+            // ld r8, r8
+            println!("ld r8, r8");
             let destination_register: u8 = (instruction & 0b00111000) >> 3;
             let source_register: u8 = instruction & 0b00000111;
-            let source_register_value = registers.get_r8_register_value(source_register, memory);
+            let (source_register_value, _): (u8, bool) =
+                registers.get_r8_register_value(source_register, memory);
             registers.set_r8_register_value(destination_register, source_register_value, memory);
+            *cycle_counter += 1
         }
     }
 }
@@ -42,58 +54,69 @@ impl Type1InstructionHandler {
 pub struct Type2InstructionHandler {}
 
 impl Type2InstructionHandler {
-    fn handle_instruction(&self, instruction: u8, registers: &mut Registers, memory: &Memory) {
+    fn handle_instruction(
+        &self,
+        instruction: u8,
+        cycle_counter: &mut u64,
+        registers: &mut Registers,
+        memory: &Memory,
+    ) {
         println!("Type 2 instruction: {instruction:08b}");
         let op_code: u8 = (instruction & 0b11111000) >> 3;
         let operand: u8 = instruction & 0b00000111;
 
         println!("Op code: {op_code:05b} Operand: {operand:03b}");
-        let r8_register_value = registers.get_r8_register_value(operand, memory);
+        let (r8_register_value, was_hl_loaded) = registers.get_r8_register_value(operand, memory);
 
         let old_a_value: u8 = registers.a;
 
         match op_code {
             0b10000 => {
-                // add
-                println!("add");
-
+                // add a, r8
+                println!("add a, r8");
                 registers.a += r8_register_value;
             }
             0b10001 => {
-                // adc
-                println!("adc");
-                registers.a += r8_register_value + Flags::C as u8
+                // adc a, r8
+                println!("adc a, r8");
+                registers.a += r8_register_value + Flags::C as u8;
             }
             0b10010 => {
-                // sub
-                println!("sub");
+                // sub a, r8
+                println!("sub a, r8");
                 registers.a -= r8_register_value;
             }
             0b10011 => {
-                // sbc
-                println!("sbc");
+                // sbc a, r8
+                println!("sbc a, r8");
                 registers.a -= r8_register_value - Flags::C as u8
             }
             0b10100 => {
-                // and
-                println!("and");
+                // and , r8
+                println!("and a, r8");
                 registers.a &= r8_register_value;
             }
             0b10101 => {
-                // xor
-                println!("xor");
+                // xor a, r8
+                println!("xor a, r8");
                 registers.a ^= r8_register_value;
             }
             0b10110 => {
-                // or
-                println!("or");
+                // or a, r8
+                println!("or a, r8");
                 registers.a |= r8_register_value;
             }
             0b10111 => {
-                // cp
-                println!("cp")
+                // cp a, r8
+                println!("cp a, r8");
+                registers.set_flags_for_r8_opperation(old_a_value, old_a_value - r8_register_value);
             }
             _ => panic!("Unknown op_code"),
+        }
+        *cycle_counter += 1;
+
+        if was_hl_loaded {
+            *cycle_counter += 1
         }
 
         let new_a_value: u8 = registers.a;
@@ -106,9 +129,124 @@ impl Type2InstructionHandler {
 pub struct Type3InstructionHandler {}
 
 impl Type3InstructionHandler {
-    fn handle_instruction(&self, registers: &mut Registers, instruction: u8) {
-        registers.d = 12;
-        println!("Type 3 instruction: {instruction:08b}")
+    fn handle_instruction(
+        &self,
+        instruction: u8,
+        cycle_counter: &mut u64,
+        registers: &mut Registers,
+        memory: &mut Memory,
+    ) {
+        println!("Type 3 instruction: {instruction:09b}");
+
+        let old_a_value = registers.a;
+        let mut has_matched: bool = false;
+
+        // First block match
+        match instruction {
+            0b11000110 => {
+                // add am imm8
+                println!("add a, imm8");
+                has_matched = true;
+                registers.a += instruction
+            }
+            0b11001110 => {
+                // adc a, imm8
+                println!("adc a, imm8");
+                has_matched = true;
+                registers.a += instruction + Flags::C as u8
+            }
+            0b11010110 => {
+                // sub a, imm8
+                println!("sub a, imm8");
+                has_matched = true;
+                registers.a -= instruction
+            }
+            0b1001110 => {
+                // sbc a, imm
+                println!("subc a, imm");
+                has_matched = true;
+                registers.a -= instruction - Flags::C as u8
+            }
+            0b11100110 => {
+                // and a,imm8
+                println!("and a, imm8");
+                has_matched = true;
+                registers.a &= instruction
+            }
+            0b11101110 => {
+                // xor a, imm8
+                println!("xor a, imm8");
+                has_matched = true;
+                registers.a ^= instruction
+            }
+            0b11110110 => {
+                println!("or a, imm8");
+                has_matched = true;
+                registers.a |= instruction
+            }
+            0b1111110 => {
+                // cp a, imm8
+                println!("cp a, imm8");
+                has_matched = true;
+                registers.set_flags_for_r8_opperation(old_a_value, old_a_value - instruction);
+            }
+            _ => {}
+        }
+
+        if has_matched {
+            *cycle_counter += 2
+        } else {
+            let conditional_op_code = instruction & 0b11100111;
+            match conditional_op_code {
+                0b1100000 => {
+                    // ret cond
+                    println!("ret cond");
+                    has_matched = true;
+                    let condition: u8 = (instruction & 0b00011000) >> 3;
+
+                    if condition != Flags::Z as u8 {
+                        let last_8_bits: u8 = memory.get_value_at_memory_address(registers.sp);
+                        registers.sp += 1;
+                        let first_8_bits: u8 = memory.get_value_at_memory_address(registers.sp);
+                        registers.pc = ((first_8_bits as u16) << 8) | last_8_bits as u16;
+                        *cycle_counter += 5
+                    } else {
+                        *cycle_counter += 2
+                    }
+                }
+                0b11000010 => {
+                    // jp cond, imm16
+                    println!("jp cond, imm16");
+                    has_matched = true;
+                    let condition: u8 = (instruction & 0b00011000) >> 3;
+
+                    if condition != Flags::Z as u8 {
+                        let hl: u16 = registers.get_hl_value();
+                        registers.pc = hl;
+                        *cycle_counter += 4
+                    } else {
+                        *cycle_counter += 3
+                    }
+                }
+                0b11000100 => {
+                    // call cond, imm16
+                    println!("call cond, imm16");
+                    has_matched = true;
+                    let condition: u8 = (instruction & 0b00011000) >> 3;
+
+                    if condition != Flags::Z as u8 {
+                        let last_8_bits: u8 = memory.get_value_at_memory_address(registers.pc);
+                        registers.pc += 1;
+                        let first_8_bites: u8 = memory.get_value_at_memory_address(registers.pc);
+                        registers.pc += 1;
+
+                        registers.sp = registers.pc;
+                        registers.pc = ((first_8_bites as u16) << 8) | last_8_bits as u16;
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 }
 
@@ -137,8 +275,9 @@ impl fmt::Debug for Registers {
 }
 
 impl Registers {
-    fn get_r8_register_value(&self, register: u8, memory: &Memory) -> u8 {
-        match register {
+    fn get_r8_register_value(&self, register: u8, memory: &Memory) -> (u8, bool) {
+        let was_hl_loaded: bool = register == 6;
+        let register_value: u8 = match register {
             0 => self.b,
             1 => self.c,
             2 => self.d,
@@ -146,12 +285,14 @@ impl Registers {
             4 => self.h,
             5 => self.l,
             6 => {
-                let memory_address: u16 = self.get_hl_memory_address();
+                // Loading the value at memory address [hl]
+                let memory_address: u16 = self.get_hl_value();
                 memory.get_value_at_memory_address(memory_address)
             }
             7 => self.a,
             _ => panic!("Invalid register"),
-        }
+        };
+        return (register_value, was_hl_loaded);
     }
 
     fn set_r8_register_value(&mut self, register: u8, value: u8, memory: &mut Memory) {
@@ -163,7 +304,7 @@ impl Registers {
             4 => self.h = value,
             5 => self.l = value,
             6 => {
-                let memory_address: u16 = self.get_hl_memory_address();
+                let memory_address: u16 = self.get_hl_value();
                 memory.set_value_at_memory_address(memory_address, value);
             }
             7 => self.a = value,
@@ -171,8 +312,8 @@ impl Registers {
         }
     }
 
-    fn get_hl_memory_address(&self) -> u16 {
-        ((self.h as u16) << 8) | (self.l as u16)
+    fn get_hl_value(&self) -> u16 {
+        ((self.h as u16) << 8) | self.l as u16
     }
 
     fn set_flags_for_r8_opperation(&mut self, old_value: u8, new_value: u8) {
@@ -214,6 +355,8 @@ enum Flags {
 
 #[derive(Default)]
 pub struct Cpu {
+    pub is_halting: bool,
+    pub cycle_counter: u64,
     pub instructions: Vec<u8>,
     pub registers: Registers,
     pub memory: Memory,
@@ -221,7 +364,6 @@ pub struct Cpu {
     pub type1_instruction_handler: Type1InstructionHandler,
     pub type2_instruction_handler: Type2InstructionHandler,
     pub type3_instruction_handler: Type3InstructionHandler,
-    pub is_halting: bool,
 }
 
 impl Debug for Cpu {
@@ -238,12 +380,15 @@ impl Cpu {
     pub fn handle_instruction(&mut self, instruction: u8) {
         let op_type: u8 = instruction >> 6;
         match op_type {
-            0b00 => self
-                .type0_instruction_handler
-                .handle_instruction(&mut self.registers, instruction),
+            0b00 => self.type0_instruction_handler.handle_instruction(
+                instruction,
+                &mut self.cycle_counter,
+                &mut self.registers,
+            ),
 
             0b01 => self.type1_instruction_handler.handle_instruction(
                 instruction,
+                &mut self.cycle_counter,
                 &mut self.registers,
                 &mut self.memory,
                 &mut self.is_halting,
@@ -251,13 +396,17 @@ impl Cpu {
 
             0b10 => self.type2_instruction_handler.handle_instruction(
                 instruction,
+                &mut self.cycle_counter,
                 &mut self.registers,
                 &self.memory,
             ),
 
-            0b11 => self
-                .type3_instruction_handler
-                .handle_instruction(&mut self.registers, instruction),
+            0b11 => self.type3_instruction_handler.handle_instruction(
+                instruction,
+                &mut self.cycle_counter,
+                &mut self.registers,
+                &mut self.memory,
+            ),
             _ => panic!("Unknown operation type"),
         }
     }
@@ -266,7 +415,10 @@ impl Cpu {
         while self.registers.pc < self.instructions.len() as u16 {
             if !self.is_halting {
                 self.handle_instruction(self.instructions[self.registers.pc as usize]);
-                self.registers.pc += 1
+
+                // See if we increment pc here or if we increment it directly in the operation by
+                // +1
+                // self.registers.pc += 1
             }
         }
     }
