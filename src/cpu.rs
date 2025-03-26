@@ -17,12 +17,18 @@ impl Type0InstructionHandler {
 pub struct Type1InstructionHandler {}
 
 impl Type1InstructionHandler {
-    fn handle_instruction(&self, instruction: u8, registers: &mut Registers, memory: &mut Memory) {
+    fn handle_instruction(
+        &self,
+        instruction: u8,
+        registers: &mut Registers,
+        memory: &mut Memory,
+        is_halting: &mut bool,
+    ) {
         println!("Type 1 instruction: {instruction:08b}");
 
         // if destination_register and source_register == [hl]
         if instruction == 0b01110110 {
-            // TODO halt instruction
+            *is_halting = true
         } else {
             let destination_register: u8 = (instruction & 0b00111000) >> 3;
             let source_register: u8 = instruction & 0b00000111;
@@ -215,6 +221,7 @@ pub struct Cpu {
     pub type1_instruction_handler: Type1InstructionHandler,
     pub type2_instruction_handler: Type2InstructionHandler,
     pub type3_instruction_handler: Type3InstructionHandler,
+    pub is_halting: bool,
 }
 
 impl Debug for Cpu {
@@ -239,6 +246,7 @@ impl Cpu {
                 instruction,
                 &mut self.registers,
                 &mut self.memory,
+                &mut self.is_halting,
             ),
 
             0b10 => self.type2_instruction_handler.handle_instruction(
@@ -256,8 +264,10 @@ impl Cpu {
 
     pub fn run(&mut self) {
         while self.registers.pc < self.instructions.len() as u16 {
-            self.handle_instruction(self.instructions[self.registers.pc as usize]);
-            self.registers.pc += 1
+            if !self.is_halting {
+                self.handle_instruction(self.instructions[self.registers.pc as usize]);
+                self.registers.pc += 1
+            }
         }
     }
 }
