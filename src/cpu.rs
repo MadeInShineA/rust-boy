@@ -1,3 +1,5 @@
+// Instruction structure and names are based on https://gbdev.io/pandocs/CPU_Instruction_Set.html
+// Instructions handeling and timings are based on https://gekkio.fi/files/gb-docs/gbctr.pdf
 use core::{fmt, panic};
 use std::{fmt::Debug, ops::BitOrAssign};
 
@@ -13,7 +15,6 @@ impl Type0InstructionHandler {
         cycle_counter: &mut u64,
         registers: &mut Registers,
     ) {
-        registers.a = 12;
         println!("Type 0 instruction: {instruction:08b}");
     }
 }
@@ -36,16 +37,17 @@ impl Type1InstructionHandler {
         if instruction == 0b01110110 {
             // halt
             println!("halt");
+            *cycle_counter += 1;
             *is_halting = true
         } else {
             // ld r8, r8
             println!("ld r8, r8");
+            *cycle_counter += 1;
             let destination_register: u8 = (instruction & 0b00111000) >> 3;
             let source_register: u8 = instruction & 0b00000111;
             let (source_register_value, _): (u8, bool) =
                 registers.get_r8_register_value(source_register, memory);
             registers.set_r8_register_value(destination_register, source_register_value, memory);
-            *cycle_counter += 1
         }
     }
 }
@@ -68,55 +70,62 @@ impl Type2InstructionHandler {
         println!("Op code: {op_code:05b} Operand: {operand:03b}");
         let (r8_register_value, was_hl_loaded) = registers.get_r8_register_value(operand, memory);
 
+        if was_hl_loaded {
+            *cycle_counter += 1
+        }
+
         let old_a_value: u8 = registers.a;
 
         match op_code {
             0b10000 => {
                 // add a, r8
                 println!("add a, r8");
-                registers.a += r8_register_value;
+                *cycle_counter += 1;
+                registers.a += r8_register_value
             }
             0b10001 => {
                 // adc a, r8
                 println!("adc a, r8");
+                *cycle_counter += 1;
                 registers.a += r8_register_value + Flags::C as u8;
             }
             0b10010 => {
                 // sub a, r8
                 println!("sub a, r8");
-                registers.a -= r8_register_value;
+                *cycle_counter += 1;
+                registers.a -= r8_register_value
             }
             0b10011 => {
                 // sbc a, r8
                 println!("sbc a, r8");
+                *cycle_counter += 1;
                 registers.a -= r8_register_value - Flags::C as u8
             }
             0b10100 => {
                 // and , r8
                 println!("and a, r8");
-                registers.a &= r8_register_value;
+                *cycle_counter += 1;
+                registers.a &= r8_register_value
             }
             0b10101 => {
                 // xor a, r8
                 println!("xor a, r8");
-                registers.a ^= r8_register_value;
+                *cycle_counter += 1;
+                registers.a ^= r8_register_value
             }
             0b10110 => {
                 // or a, r8
                 println!("or a, r8");
-                registers.a |= r8_register_value;
+                *cycle_counter += 1;
+                registers.a |= r8_register_value
             }
             0b10111 => {
                 // cp a, r8
                 println!("cp a, r8");
-                registers.set_flags_for_r8_opperation(old_a_value, old_a_value - r8_register_value);
+                *cycle_counter += 1;
+                registers.set_flags_for_r8_opperation(old_a_value, old_a_value - r8_register_value)
             }
             _ => panic!("Unknown op_code"),
-        }
-        *cycle_counter += 1;
-
-        if was_hl_loaded {
-            *cycle_counter += 1
         }
 
         let new_a_value: u8 = registers.a;
@@ -139,113 +148,145 @@ impl Type3InstructionHandler {
         println!("Type 3 instruction: {instruction:09b}");
 
         let old_a_value = registers.a;
-        let mut has_matched: bool = false;
 
-        // First block match
+        // First block match (a operations)
         match instruction {
             0b11000110 => {
                 // add am imm8
                 println!("add a, imm8");
-                has_matched = true;
-                registers.a += instruction
+                registers.a += instruction;
+                *cycle_counter += 2
             }
             0b11001110 => {
                 // adc a, imm8
                 println!("adc a, imm8");
-                has_matched = true;
-                registers.a += instruction + Flags::C as u8
+                registers.a += instruction + Flags::C as u8;
+                *cycle_counter += 2
             }
             0b11010110 => {
                 // sub a, imm8
                 println!("sub a, imm8");
-                has_matched = true;
-                registers.a -= instruction
+                registers.a -= instruction;
+                *cycle_counter += 2
             }
             0b1001110 => {
                 // sbc a, imm
                 println!("subc a, imm");
-                has_matched = true;
-                registers.a -= instruction - Flags::C as u8
+                registers.a -= instruction - Flags::C as u8;
+                *cycle_counter += 2
             }
             0b11100110 => {
                 // and a,imm8
                 println!("and a, imm8");
-                has_matched = true;
-                registers.a &= instruction
+                registers.a &= instruction;
+                *cycle_counter += 2
             }
             0b11101110 => {
                 // xor a, imm8
                 println!("xor a, imm8");
-                has_matched = true;
-                registers.a ^= instruction
+                registers.a ^= instruction;
+                *cycle_counter += 2
             }
             0b11110110 => {
+                // or a, imm8
                 println!("or a, imm8");
-                has_matched = true;
-                registers.a |= instruction
+                registers.a |= instruction;
+                *cycle_counter += 2
             }
             0b1111110 => {
                 // cp a, imm8
                 println!("cp a, imm8");
-                has_matched = true;
                 registers.set_flags_for_r8_opperation(old_a_value, old_a_value - instruction);
+                *cycle_counter += 2
             }
             _ => {}
         }
 
-        if has_matched {
-            *cycle_counter += 2
-        } else {
-            let conditional_op_code = instruction & 0b11100111;
-            match conditional_op_code {
-                0b1100000 => {
-                    // ret cond
-                    println!("ret cond");
-                    has_matched = true;
-                    let condition: u8 = (instruction & 0b00011000) >> 3;
+        // second block match
 
-                    if condition != Flags::Z as u8 {
-                        let last_8_bits: u8 = memory.get_value_at_memory_address(registers.sp);
-                        registers.sp += 1;
-                        let first_8_bits: u8 = memory.get_value_at_memory_address(registers.sp);
-                        registers.pc = ((first_8_bits as u16) << 8) | last_8_bits as u16;
-                        *cycle_counter += 5
-                    } else {
-                        *cycle_counter += 2
-                    }
+        // conditional operations
+        let conditional_op_code = instruction & 0b11100111;
+        match conditional_op_code {
+            0b1100000 => {
+                // ret cond
+                println!("ret cond");
+                *cycle_counter += 1;
+                let condition: u8 = (instruction & 0b00011000) >> 3;
+
+                if condition != Flags::Z as u8 {
+                    *cycle_counter += 1;
+                    let last_8_bits: u8 = memory.get_value_at_memory_address(registers.sp);
+                    *cycle_counter += 1;
+                    registers.sp += 1;
+                    let first_8_bits: u8 = memory.get_value_at_memory_address(registers.sp);
+                    *cycle_counter += 1;
+                    registers.sp += 1;
+                    registers.pc = ((first_8_bits as u16) << 8) | last_8_bits as u16;
+                    *cycle_counter += 1
+                } else {
+                    *cycle_counter += 1
                 }
-                0b11000010 => {
-                    // jp cond, imm16
-                    println!("jp cond, imm16");
-                    has_matched = true;
-                    let condition: u8 = (instruction & 0b00011000) >> 3;
-
-                    if condition != Flags::Z as u8 {
-                        let hl: u16 = registers.get_hl_value();
-                        registers.pc = hl;
-                        *cycle_counter += 4
-                    } else {
-                        *cycle_counter += 3
-                    }
-                }
-                0b11000100 => {
-                    // call cond, imm16
-                    println!("call cond, imm16");
-                    has_matched = true;
-                    let condition: u8 = (instruction & 0b00011000) >> 3;
-
-                    if condition != Flags::Z as u8 {
-                        let last_8_bits: u8 = memory.get_value_at_memory_address(registers.pc);
-                        registers.pc += 1;
-                        let first_8_bites: u8 = memory.get_value_at_memory_address(registers.pc);
-                        registers.pc += 1;
-
-                        registers.sp = registers.pc;
-                        registers.pc = ((first_8_bites as u16) << 8) | last_8_bits as u16;
-                    }
-                }
-                _ => {}
             }
+            0b11000010 => {
+                // jp cond, imm16
+                println!("jp cond, imm16");
+                *cycle_counter += 1;
+                let condition: u8 = (instruction & 0b00011000) >> 3;
+
+                let last_8_bits: u8 = memory.get_value_at_memory_address(registers.pc);
+                registers.pc += 1;
+                *cycle_counter += 1;
+                let first_8_bits: u8 = memory.get_value_at_memory_address(registers.pc);
+                registers.pc += 1;
+                *cycle_counter += 1;
+
+                if condition != Flags::Z as u8 {
+                    *cycle_counter += 1;
+                    registers.pc = ((first_8_bits as u16) << 8) | last_8_bits as u16;
+                }
+            }
+            0b11000100 => {
+                // call cond, imm16
+                println!("call cond, imm16");
+                *cycle_counter += 1;
+                let condition: u8 = (instruction & 0b00011000) >> 3;
+
+                let last_8_bits: u8 = memory.get_value_at_memory_address(registers.pc);
+                *cycle_counter += 1;
+                registers.pc += 1;
+                let first_8_bits: u8 = memory.get_value_at_memory_address(registers.pc);
+                *cycle_counter += 1;
+                registers.pc += 1;
+
+                if condition != Flags::Z as u8 {
+                    registers.sp = registers.pc;
+                    *cycle_counter += 2;
+
+                    registers.pc = ((first_8_bits as u16) << 8) | last_8_bits as u16;
+                    *cycle_counter += 1
+                }
+            }
+            _ => {}
+        }
+
+        // target operations
+        let target_op_code: u8 = instruction & 0b11000111;
+        if target_op_code == 0b11000111 {
+            // rst tgt3
+            println!("rst tgt3");
+            *cycle_counter += 1;
+
+            let target: u8 = (target_op_code & 0b00111000) >> 3;
+            registers.sp -= 1;
+
+            let pc_msb: u8 = ((registers.pc & 0b1111111100000000) >> 8) as u8;
+            memory.set_value_at_memory_address(registers.sp, pc_msb);
+            *cycle_counter += 1;
+            registers.sp -= 1;
+            let pc_lsb: u8 = (registers.pc & 0b0000000011111111) as u8;
+            *cycle_counter += 1;
+            memory.set_value_at_memory_address(registers.pc, pc_lsb);
+            registers.pc = target as u16
         }
     }
 }
@@ -292,7 +333,7 @@ impl Registers {
             7 => self.a,
             _ => panic!("Invalid register"),
         };
-        return (register_value, was_hl_loaded);
+        (register_value, was_hl_loaded)
     }
 
     fn set_r8_register_value(&mut self, register: u8, value: u8, memory: &mut Memory) {
@@ -414,11 +455,9 @@ impl Cpu {
     pub fn run(&mut self) {
         while self.registers.pc < self.instructions.len() as u16 {
             if !self.is_halting {
-                self.handle_instruction(self.instructions[self.registers.pc as usize]);
-
-                // See if we increment pc here or if we increment it directly in the operation by
-                // +1
-                // self.registers.pc += 1
+                let current_instruction: u8 = self.instructions[self.registers.pc as usize];
+                self.registers.pc += 1;
+                self.handle_instruction(current_instruction);
             }
         }
     }
