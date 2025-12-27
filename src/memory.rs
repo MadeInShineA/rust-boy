@@ -13,7 +13,7 @@ impl Default for Memory {
 impl fmt::Debug for Memory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (address, &content) in self.memory.iter().enumerate() {
-            write!(f, "{:04X}: {:02X}\t", address, content)?;
+            write!(f, "{:04X}: {:08b}\t", address, content)?;
         }
         Ok(())
     }

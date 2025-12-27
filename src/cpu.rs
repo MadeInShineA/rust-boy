@@ -430,7 +430,7 @@ impl fmt::Debug for Registers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "AF:  {:#04X} {:#04X}\nBC:  {:#04X} {:#04X}\nDE:  {:#04X} {:#04X}\nHL:  {:#04X} {:#04X}\nSP:  {:#06X}\nPC:  {:#06X}",
+            "AF:  {:08b} {:08b}\nBC:  {:08b} {:08b}\nDE:  {:08b} {:08b}\nHL:  {:08b} {:08b}\nSP:  {:016b}\nPC:  {:016b}",
             self.a, self.f, self.b, self.c, self.d, self.e, self.h, self.l, self.sp, self.pc
         )
     }
@@ -642,10 +642,11 @@ pub struct Cpu {
 
 impl Debug for Cpu {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let instructions_str: String = self.instructions.iter().map(|&b| format!("{:08b}", b)).collect::<Vec<_>>().join("\n");
         writeln!(
             f,
-            "========== CPU ==========\n===== Instructions =====\n{:?}\n===== Registers =====\n{:?}\n===== Memory =====\n{:?}",
-            self.instructions, self.registers, self.memory
+            "========== CPU ==========\n===== Instructions =====\n{}\n===== Registers =====\n{:?}\n===== Memory =====\n{:?}",
+            instructions_str, self.registers, self.memory
         )
     }
 }
