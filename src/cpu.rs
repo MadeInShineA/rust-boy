@@ -269,7 +269,7 @@ impl Type3InstructionHandler {
         // conditional operations
         let conditional_op_code: u8 = instruction & 0b11100111;
         match conditional_op_code {
-            0b1100000 => {
+            0b11000000 => {
                 // ret cond
                 println!("ret cond");
                 *cycle_counter += 1;
