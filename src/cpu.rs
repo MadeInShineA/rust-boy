@@ -558,7 +558,7 @@ impl Registers {
             0b11 => {
                 // AF
                 self.a = value_msb;
-                self.f = value_lsb
+                self.f = value_lsb & 0b11110000
             }
             _ => panic!("Invalid register"),
         }
