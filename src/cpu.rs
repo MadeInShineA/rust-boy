@@ -45,8 +45,13 @@ impl Type1InstructionHandler {
             *cycle_counter += 1;
             let destination_register: u8 = (instruction & 0b00111000) >> 3;
             let source_register_bits: u8 = instruction & 0b00000111;
-            let (source_register_value, _): (u8, bool) =
+            let (source_register_value, was_hl_loaded): (u8, bool) =
                 registers.get_r8_register_value(source_register_bits, memory);
+
+            if was_hl_loaded || destination_register == 0b110 {
+                *cycle_counter += 1
+            }
+
             registers.set_r8_register_value(destination_register, source_register_value, memory);
         }
     }
