@@ -82,7 +82,7 @@ impl Type2InstructionHandler {
                 println!("add a, r8");
                 *cycle_counter += 1;
                 registers.a = old_a_value.wrapping_add(r8_register_value);
-                registers.set_add_flags(old_a_value, registers.a)
+                registers.set_add_flags(old_a_value, r8_register_value, 0)
             }
             0b10001 => {
                 // adc a, r8
@@ -96,14 +96,14 @@ impl Type2InstructionHandler {
                 registers.a = old_a_value
                     .wrapping_add(r8_register_value)
                     .wrapping_add(carry_value);
-                registers.set_add_flags(old_a_value, registers.a)
+                registers.set_add_flags(old_a_value, r8_register_value, carry_value)
             }
             0b10010 => {
                 // sub a, r8
                 println!("sub a, r8");
                 *cycle_counter += 1;
                 registers.a = old_a_value.wrapping_sub(r8_register_value);
-                registers.set_sub_flags(old_a_value, registers.a)
+                registers.set_sub_flags(old_a_value, r8_register_value, 0)
             }
             0b10011 => {
                 // sbc a, r8
@@ -117,7 +117,7 @@ impl Type2InstructionHandler {
                 registers.a = old_a_value
                     .wrapping_sub(r8_register_value)
                     .wrapping_sub(carry_value);
-                registers.set_sub_flags(old_a_value, registers.a)
+                registers.set_sub_flags(old_a_value, r8_register_value, carry_value)
             }
             0b10100 => {
                 // and , r8
@@ -144,7 +144,7 @@ impl Type2InstructionHandler {
                 // cp a, r8
                 println!("cp a, r8");
                 *cycle_counter += 1;
-                registers.set_sub_flags(old_a_value, registers.a.wrapping_sub(r8_register_value))
+                registers.set_sub_flags(old_a_value, r8_register_value, 0)
             }
             _ => panic!("Unknown op_code"),
         }
@@ -177,7 +177,7 @@ impl Type3InstructionHandler {
                 *cycle_counter += 1;
 
                 registers.a = old_a_value.wrapping_add(n);
-                registers.set_add_flags(old_a_value, registers.a);
+                registers.set_add_flags(old_a_value, n, 0);
             }
             0b11001110 => {
                 // adc a, imm8
@@ -193,7 +193,7 @@ impl Type3InstructionHandler {
                     0
                 };
                 registers.a = old_a_value.wrapping_add(n).wrapping_add(carry_value);
-                registers.set_add_flags(old_a_value, registers.a);
+                registers.set_add_flags(old_a_value, n, carry_value);
             }
             0b11010110 => {
                 // sub a, imm8
@@ -204,7 +204,7 @@ impl Type3InstructionHandler {
                 *cycle_counter += 1;
 
                 registers.a = old_a_value.wrapping_sub(n);
-                registers.set_sub_flags(old_a_value, registers.a);
+                registers.set_sub_flags(old_a_value, n, 0);
             }
             0b11011110 => {
                 // sbc a, imm
@@ -220,7 +220,7 @@ impl Type3InstructionHandler {
                     0
                 };
                 registers.a = old_a_value.wrapping_sub(n).wrapping_sub(carry_value);
-                registers.set_sub_flags(old_a_value, registers.a);
+                registers.set_sub_flags(old_a_value, n, carry_value);
             }
             0b11100110 => {
                 // and a,imm8
@@ -263,7 +263,7 @@ impl Type3InstructionHandler {
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
-                registers.set_sub_flags(old_a_value, registers.a.wrapping_sub(n));
+                registers.set_sub_flags(old_a_value, n, 0);
             }
             _ => {}
         }
@@ -561,42 +561,44 @@ impl Registers {
 
     // TODO: getter and setter for r16_register_memory_value
 
-    fn set_add_flags(&mut self, old_value: u8, new_value: u8) {
+    fn set_add_flags(&mut self, old_value: u8, operand: u8, carry_value: u8) {
         self.f = 0b00000000;
 
+        let new_value: u8 = old_value.wrapping_add(operand).wrapping_add(carry_value);
         if new_value == 0 {
             self.f |= Flags::Z as u8
         }
 
         let old_value_lsb: u8 = old_value & 0b00001111;
-        let new_value_lsb: u8 = new_value & 0b00001111;
+        let operand_lsb: u8 = operand & 0b00001111;
 
-        if new_value_lsb < old_value_lsb {
+        if old_value_lsb + operand_lsb + carry_value > 0b00001111 {
             self.f |= Flags::H as u8
         }
 
-        if new_value < old_value {
+        if old_value as u16 + operand as u16 + carry_value as u16 > 0b11111111 {
             self.f |= Flags::C as u8
         }
     }
 
-    fn set_sub_flags(&mut self, old_value: u8, new_value: u8) {
+    fn set_sub_flags(&mut self, old_value: u8, operand: u8, carry_value: u8) {
         self.f = 0b00000000;
 
         self.f |= Flags::N as u8;
 
+        let new_value: u8 = old_value.wrapping_sub(operand).wrapping_sub(carry_value);
         if new_value == 0 {
             self.f |= Flags::Z as u8
         }
 
         let old_value_lsb: u8 = old_value & 0b00001111;
-        let new_value_lsb: u8 = new_value & 0b00001111;
+        let operand_lsb: u8 = operand & 0b00001111;
 
-        if new_value_lsb > old_value_lsb {
+        if old_value_lsb < operand_lsb + carry_value {
             self.f |= Flags::H as u8
         }
 
-        if new_value > old_value {
+        if (old_value as u16) < operand as u16 + carry_value as u16 {
             self.f |= Flags::C as u8
         }
     }
