@@ -421,7 +421,6 @@ impl Type3InstructionHandler {
     }
 }
 
-#[derive(Default)]
 pub struct Registers {
     a: u8,
     f: u8,
@@ -433,6 +432,23 @@ pub struct Registers {
     l: u8,
     sp: u16,
     pc: u16,
+}
+
+impl Default for Registers {
+    fn default() -> Self {
+        Self {
+            a: 0,
+            f: 0,
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            h: 0,
+            l: 0,
+            sp: 0xFFFE, // Stack starts at the top of HRAM
+            pc: 0,
+        }
+    }
 }
 
 impl fmt::Debug for Registers {

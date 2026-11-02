@@ -1,12 +1,12 @@
 use std::fmt;
 
 pub struct Memory {
-    pub memory: [u8; 8192],
+    pub memory: [u8; 0x10000],
 }
 
 impl Default for Memory {
     fn default() -> Self {
-        Self { memory: [0; 8192] } // Initialize all bytes to 0
+        Self { memory: [0; 0x10000] } // Initialize all bytes to 0
     }
 }
 
