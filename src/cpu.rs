@@ -112,7 +112,7 @@ impl Type2InstructionHandler {
                 } else {
                     0
                 };
-                registers.a -= r8_register_value - carry_value;
+                registers.a -= r8_register_value + carry_value;
                 registers.set_sub_flags(old_a_value, registers.a)
             }
             0b10100 => {
@@ -215,7 +215,7 @@ impl Type3InstructionHandler {
                 } else {
                     0
                 };
-                registers.a -= n - carry_value;
+                registers.a -= n + carry_value;
                 registers.set_sub_flags(old_a_value, registers.a);
             }
             0b11100110 => {
