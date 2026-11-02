@@ -174,7 +174,7 @@ impl Type3InstructionHandler {
         // First sub block operations (a operations)
         match instruction {
             0b11000110 => {
-                // add am imm8
+                // add a, imm8
                 println!("add a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.get_value_at_memory_address(registers.pc);
@@ -212,8 +212,8 @@ impl Type3InstructionHandler {
                 registers.set_sub_flags(old_a_value, n, 0);
             }
             0b11011110 => {
-                // sbc a, imm
-                println!("subc a, imm");
+                // sbc a, imm8
+                println!("sbc a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.get_value_at_memory_address(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
