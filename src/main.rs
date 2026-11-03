@@ -1,5 +1,7 @@
 #![crate_name = "rust_boy"]
 
+use std::{env, fs::File, io::Read};
+
 mod cpu;
 use cpu::Cpu;
 
@@ -7,19 +9,38 @@ mod memory;
 use memory::Memory;
 
 fn main() {
-    let instructions: Vec<u8> = Vec::from([0b00000001, 0b01000111, 0b10101010, 0b11001110]);
+    let arguments: Vec<String> = env::args().collect();
 
-    let memory: Memory = Memory {
-        ..Memory::default()
-    };
+    match arguments.len() {
+        2 => {
+            let file_path = arguments[1].to_string();
 
-    let mut cpu: Cpu = Cpu {
-        memory,
-        instructions,
-        ..Cpu::default()
-    };
+            let mut file = File::open(file_path).unwrap();
 
-    cpu.run();
+            let mut file_content = Vec::new();
+            file.read_to_end(&mut file_content).unwrap();
 
-    println!("{cpu:?}")
+            let file_size = file_content.len();
+
+            if file_content.is_empty() || file_size > 0x10000 {
+                panic!("Bad ROM size: {} bytes", file_content.len());
+            }
+            let mut loaded_file = [0; 0x10000];
+            loaded_file[..file_size].copy_from_slice(&file_content);
+
+            let memory = Memory {
+                memory: loaded_file,
+            };
+
+            let mut cpu: Cpu = Cpu {
+                memory,
+                ..Cpu::default()
+            };
+
+            cpu.run();
+
+            println!("{:?}", cpu)
+        }
+        _ => panic!("usage: rust_boy <rom.gb>"),
+    }
 }

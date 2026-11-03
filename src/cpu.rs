@@ -669,7 +669,12 @@ pub struct Cpu {
 
 impl Debug for Cpu {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let instructions_str: String = self.instructions.iter().map(|&b| format!("{:08b}", b)).collect::<Vec<_>>().join("\n");
+        let instructions_str: String = self
+            .instructions
+            .iter()
+            .map(|&b| format!("{:08b}", b))
+            .collect::<Vec<_>>()
+            .join("\n");
         writeln!(
             f,
             "========== CPU ==========\n===== Instructions =====\n{}\n===== Registers =====\n{:?}\n===== Memory =====\n{:?}",
