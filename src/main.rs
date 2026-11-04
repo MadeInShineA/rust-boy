@@ -30,10 +30,7 @@ fn main() {
 
             let memory = Memory::new(loaded_file);
 
-            let mut cpu: Cpu = Cpu {
-                memory,
-                ..Cpu::default()
-            };
+            let mut cpu: Cpu = Cpu::new(memory);
 
             cpu.run();
 

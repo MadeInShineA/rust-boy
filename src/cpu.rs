@@ -177,7 +177,7 @@ impl Type3InstructionHandler {
                 // add a, imm8
                 println!("add a, imm8");
                 *cycle_counter += 1;
-                let n: u8 = memory.get_value_at_memory_address(registers.pc);
+                let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -188,7 +188,7 @@ impl Type3InstructionHandler {
                 // adc a, imm8
                 println!("adc a, imm8");
                 *cycle_counter += 1;
-                let n: u8 = memory.get_value_at_memory_address(registers.pc);
+                let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -204,7 +204,7 @@ impl Type3InstructionHandler {
                 // sub a, imm8
                 println!("sub a, imm8");
                 *cycle_counter += 1;
-                let n: u8 = memory.get_value_at_memory_address(registers.pc);
+                let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -215,7 +215,7 @@ impl Type3InstructionHandler {
                 // sbc a, imm8
                 println!("sbc a, imm8");
                 *cycle_counter += 1;
-                let n: u8 = memory.get_value_at_memory_address(registers.pc);
+                let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -231,7 +231,7 @@ impl Type3InstructionHandler {
                 // and a,imm8
                 println!("and a, imm8");
                 *cycle_counter += 1;
-                let n: u8 = memory.get_value_at_memory_address(registers.pc);
+                let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -242,7 +242,7 @@ impl Type3InstructionHandler {
                 // xor a, imm8
                 println!("xor a, imm8");
                 *cycle_counter += 1;
-                let n: u8 = memory.get_value_at_memory_address(registers.pc);
+                let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -253,7 +253,7 @@ impl Type3InstructionHandler {
                 // or a, imm8
                 println!("or a, imm8");
                 *cycle_counter += 1;
-                let n: u8 = memory.get_value_at_memory_address(registers.pc);
+                let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -264,7 +264,7 @@ impl Type3InstructionHandler {
                 // cp a, imm8
                 println!("cp a, imm8");
                 *cycle_counter += 1;
-                let n: u8 = memory.get_value_at_memory_address(registers.pc);
+                let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -286,11 +286,11 @@ impl Type3InstructionHandler {
 
                 if registers.should_execute(condition_bits) {
                     *cycle_counter += 1;
-                    let nn_lsb: u8 = memory.get_value_at_memory_address(registers.sp);
+                    let nn_lsb: u8 = memory.read_byte(registers.sp);
                     registers.sp = registers.sp.wrapping_add(1);
                     *cycle_counter += 1;
 
-                    let nn_msb: u8 = memory.get_value_at_memory_address(registers.sp);
+                    let nn_msb: u8 = memory.read_byte(registers.sp);
                     registers.sp = registers.sp.wrapping_add(1);
                     *cycle_counter += 1;
 
@@ -306,11 +306,11 @@ impl Type3InstructionHandler {
                 *cycle_counter += 1;
                 let condition_bits: u8 = (instruction & 0b00011000) >> 3;
 
-                let nn_lsb: u8 = memory.get_value_at_memory_address(registers.pc);
+                let nn_lsb: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
-                let nn_msb: u8 = memory.get_value_at_memory_address(registers.pc);
+                let nn_msb: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -325,23 +325,23 @@ impl Type3InstructionHandler {
                 *cycle_counter += 1;
                 let condition_bits: u8 = (instruction & 0b00011000) >> 3;
 
-                let nn_lsb: u8 = memory.get_value_at_memory_address(registers.pc);
+                let nn_lsb: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
-                let nn_msb: u8 = memory.get_value_at_memory_address(registers.pc);
+                let nn_msb: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
                 *cycle_counter += 1;
 
                 if registers.should_execute(condition_bits) {
                     registers.sp = registers.sp.wrapping_sub(1);
                     let pc_msb: u8 = ((registers.pc & 0b1111111100000000) >> 8) as u8;
-                    memory.set_value_at_memory_address(registers.sp, pc_msb);
+                    memory.write_byte(registers.sp, pc_msb);
                     registers.sp = registers.sp.wrapping_sub(1);
                     *cycle_counter += 1;
 
                     let pc_lsb: u8 = (registers.pc & 0b0000000011111111) as u8;
-                    memory.set_value_at_memory_address(registers.sp, pc_lsb);
+                    memory.write_byte(registers.sp, pc_lsb);
                     *cycle_counter += 1;
 
                     registers.pc = ((nn_msb as u16) << 8) | nn_lsb as u16;
@@ -363,12 +363,12 @@ impl Type3InstructionHandler {
             *cycle_counter += 1;
 
             let pc_msb: u8 = ((registers.pc & 0b1111111100000000) >> 8) as u8;
-            memory.set_value_at_memory_address(registers.sp, pc_msb);
+            memory.write_byte(registers.sp, pc_msb);
             registers.sp = registers.sp.wrapping_sub(1);
             *cycle_counter += 1;
 
             let pc_lsb: u8 = (registers.pc & 0b0000000011111111) as u8;
-            memory.set_value_at_memory_address(registers.sp, pc_lsb);
+            memory.write_byte(registers.sp, pc_lsb);
             registers.pc = (target as u16) * 8;
             *cycle_counter += 1
         }
@@ -386,11 +386,11 @@ impl Type3InstructionHandler {
                 println!("pop r16stk");
                 *cycle_counter += 1;
 
-                let lsb: u8 = memory.get_value_at_memory_address(registers.sp);
+                let lsb: u8 = memory.read_byte(registers.sp);
                 registers.sp = registers.sp.wrapping_add(1);
                 *cycle_counter += 1;
 
-                let msb: u8 = memory.get_value_at_memory_address(registers.sp);
+                let msb: u8 = memory.read_byte(registers.sp);
                 registers.sp = registers.sp.wrapping_add(1);
                 *cycle_counter += 1;
 
@@ -408,11 +408,11 @@ impl Type3InstructionHandler {
                 let register_value: u16 = registers.get_r16_register_stack_value(register_bits);
                 let register_value_msb: u8 = ((register_value & 0b1111111100000000) >> 8) as u8;
                 let register_value_lsb: u8 = (register_value & 0b0000000011111111) as u8;
-                memory.set_value_at_memory_address(registers.sp, register_value_msb);
+                memory.write_byte(registers.sp, register_value_msb);
                 *cycle_counter += 1;
 
                 registers.sp = registers.sp.wrapping_sub(1);
-                memory.set_value_at_memory_address(registers.sp, register_value_lsb);
+                memory.write_byte(registers.sp, register_value_lsb);
                 *cycle_counter += 1;
             }
             _ => {}
@@ -478,7 +478,7 @@ impl Registers {
             0b110 => {
                 // Loading the value at memory address [hl]
                 let memory_address: u16 = self.get_hl_value();
-                memory.get_value_at_memory_address(memory_address)
+                memory.read_byte(memory_address)
             }
             0b111 => self.a,
             _ => panic!("Invalid register"),
@@ -496,7 +496,7 @@ impl Registers {
             0b101 => self.l = value,
             0b110 => {
                 let memory_address: u16 = self.get_hl_value();
-                memory.set_value_at_memory_address(memory_address, value);
+                memory.write_byte(memory_address, value);
             }
             0b111 => self.a = value,
             _ => panic!("Invalid register"),
@@ -656,35 +656,34 @@ enum Flags {
 
 #[derive(Default)]
 pub struct Cpu {
-    pub is_halting: bool,
-    pub cycle_counter: u64,
-    pub instructions: Vec<u8>,
-    pub registers: Registers,
-    pub memory: Memory,
-    pub type0_instruction_handler: Type0InstructionHandler,
-    pub type1_instruction_handler: Type1InstructionHandler,
-    pub type2_instruction_handler: Type2InstructionHandler,
-    pub type3_instruction_handler: Type3InstructionHandler,
+    is_halting: bool,
+    cycle_counter: u64,
+    registers: Registers,
+    memory: Memory,
+    type0_instruction_handler: Type0InstructionHandler,
+    type1_instruction_handler: Type1InstructionHandler,
+    type2_instruction_handler: Type2InstructionHandler,
+    type3_instruction_handler: Type3InstructionHandler,
 }
 
 impl Debug for Cpu {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let instructions_str: String = self
-            .instructions
-            .iter()
-            .map(|&b| format!("{:08b}", b))
-            .collect::<Vec<_>>()
-            .join("\n");
         writeln!(
             f,
-            "========== CPU ==========\n===== Instructions =====\n{}\n===== Registers =====\n{:?}\n===== Memory =====\n{:?}",
-            instructions_str, self.registers, self.memory
+            "========== CPU ==========\n===== Registers =====\n{:?}\n===== Memory =====\n{:?}",
+            self.registers, self.memory
         )
     }
 }
 
 impl Cpu {
-    pub fn handle_instruction(&mut self, instruction: u8) {
+    pub fn new(memory: Memory) -> Cpu {
+        Cpu {
+            memory,
+            ..Default::default()
+        }
+    }
+    fn handle_instruction(&mut self, instruction: u8) {
         let op_type: u8 = instruction >> 6;
         match op_type {
             0b00 => self.type0_instruction_handler.handle_instruction(
@@ -719,12 +718,15 @@ impl Cpu {
     }
 
     pub fn run(&mut self) {
-        while self.registers.pc < self.instructions.len() as u16 {
-            if !self.is_halting {
-                let current_instruction: u8 = self.instructions[self.registers.pc as usize];
-                self.registers.pc = self.registers.pc.wrapping_add(1);
-                self.handle_instruction(current_instruction);
+        loop {
+            // TODO Change when interrupts are done
+            if self.is_halting {
+                break;
             }
+
+            let current_instruction: u8 = self.memory.read_byte(self.registers.pc);
+            self.registers.pc = self.registers.pc.wrapping_add(1);
+            self.handle_instruction(current_instruction);
         }
     }
 }
