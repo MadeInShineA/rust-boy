@@ -28,9 +28,7 @@ fn main() {
             let mut loaded_file = [0; 0x10000];
             loaded_file[..file_size].copy_from_slice(&file_content);
 
-            let memory = Memory {
-                memory: loaded_file,
-            };
+            let memory = Memory::new(loaded_file);
 
             let mut cpu: Cpu = Cpu {
                 memory,

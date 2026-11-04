@@ -14,20 +14,20 @@ use std::fmt;
 // FF80-FFFE   HRAM                 High RAM (stack usually lives here)
 // FFFF        IE                   Interrupt enable register
 pub struct Memory {
-    pub memory: [u8; 0x10000],
+    bytes: [u8; 0x10000],
 }
 
 impl Default for Memory {
     fn default() -> Self {
         Self {
-            memory: [0; 0x10000],
-        } // Initialize all bytes to 0
+            bytes: [0; 0x10000],
+        }
     }
 }
 
 impl fmt::Debug for Memory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (row, chunk) in self.memory.chunks(16).enumerate() {
+        for (row, chunk) in self.bytes.chunks(16).enumerate() {
             write!(f, "{:04X}: ", row * 16)?;
             for byte in chunk {
                 write!(f, "{:02X} ", byte)?;
@@ -39,11 +39,14 @@ impl fmt::Debug for Memory {
 }
 
 impl Memory {
-    pub fn get_value_at_memory_address(&self, memory_address: u16) -> u8 {
-        self.memory[memory_address as usize]
+    pub fn new(bytes: [u8; 0x10000]) -> Memory {
+        Memory { bytes }
+    }
+    pub fn read_byte(&self, address: u16) -> u8 {
+        self.bytes[address as usize]
     }
 
-    pub fn set_value_at_memory_address(&mut self, memory_address: u16, value: u8) {
-        self.memory[memory_address as usize] = value
+    pub fn write_byte(&mut self, address: u16, value: u8) {
+        self.bytes[address as usize] = value
     }
 }
