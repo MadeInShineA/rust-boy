@@ -422,6 +422,8 @@ impl Type3InstructionHandler {
 }
 
 pub struct Registers {
+    sp: u16,
+    pc: u16,
     a: u8,
     f: u8,
     b: u8,
@@ -430,8 +432,6 @@ pub struct Registers {
     e: u8,
     h: u8,
     l: u8,
-    sp: u16,
-    pc: u16,
 }
 
 impl Default for Registers {
@@ -717,6 +717,12 @@ impl Cpu {
         }
     }
 
+    fn step(&mut self) {
+        let current_instruction: u8 = self.memory.read_byte(self.registers.pc);
+        self.registers.pc = self.registers.pc.wrapping_add(1);
+        self.handle_instruction(current_instruction);
+    }
+
     pub fn run(&mut self) {
         loop {
             // TODO Change when interrupts are done
@@ -724,9 +730,87 @@ impl Cpu {
                 break;
             }
 
-            let current_instruction: u8 = self.memory.read_byte(self.registers.pc);
-            self.registers.pc = self.registers.pc.wrapping_add(1);
-            self.handle_instruction(current_instruction);
+            self.step();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    mod sm83 {
+        use std::{
+            fs,
+            path::{Path, PathBuf},
+        };
+
+        use serde::Deserialize;
+
+        #[derive(Deserialize)]
+        struct RamEntry(
+            /// Address
+            u16,
+            /// Value
+            u8,
+        );
+
+        #[derive(Deserialize)]
+        struct CpuState {
+            sp: u16,
+            pc: u16,
+            a: u8,
+            f: u8,
+            b: u8,
+            c: u8,
+            d: u8,
+            e: u8,
+            h: u8,
+            l: u8,
+            ime: u8,
+            ie: Option<u8>,
+            ram: Vec<RamEntry>,
+        }
+
+        #[derive(Deserialize)]
+        struct CpuCycle(
+            /// Address
+            u16,
+            ///  Value
+            Option<u8>,
+            /// Pins
+            String,
+        );
+
+        #[derive(Deserialize)]
+        struct CpuInstructionTests {
+            name: String,
+
+            #[serde(rename = "initial")]
+            initial_state: CpuState,
+
+            #[serde(rename = "final")]
+            final_state: CpuState,
+            cycles: Vec<CpuCycle>,
+        }
+
+        fn test_sm83_file(sm83_test_file_path: &PathBuf) {
+            let cpu_instruction_tests: Vec<CpuInstructionTests> =
+                serde_json::from_str(&fs::read_to_string(sm83_test_file_path).unwrap()).unwrap();
+
+            println!("Loaded test {}", cpu_instruction_tests[0].name)
+        }
+
+        #[test]
+        /// Tests all the sm83 files
+        fn test_sm83_files() {
+            let sm83_test_folder_path = Path::new("./tests/sm83");
+
+            for sm83_test_folder_entry_result in fs::read_dir(sm83_test_folder_path).unwrap() {
+                let dir_entry = sm83_test_folder_entry_result.unwrap();
+                let file_path = dir_entry.path();
+
+                test_sm83_file(&file_path);
+            }
         }
     }
 }
