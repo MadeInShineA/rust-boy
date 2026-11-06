@@ -793,24 +793,23 @@ mod tests {
             cycles: Vec<CpuCycle>,
         }
 
-        fn test_sm83_file(sm83_test_file_path: &PathBuf) {
+        fn test_sm83_file(sm83_test_file_path_str: &str) {
+            let sm83_test_file_path = Path::new(sm83_test_file_path_str);
             let cpu_instruction_tests: Vec<CpuInstructionTests> =
                 serde_json::from_str(&fs::read_to_string(sm83_test_file_path).unwrap()).unwrap();
 
-            println!("Loaded test {}", cpu_instruction_tests[0].name)
+            println!("Loaded test {}", cpu_instruction_tests[0].name);
         }
 
-        #[test]
-        /// Tests all the sm83 files
-        fn test_sm83_files() {
-            let sm83_test_folder_path = Path::new("./tests/sm83");
-
-            for sm83_test_folder_entry_result in fs::read_dir(sm83_test_folder_path).unwrap() {
-                let dir_entry = sm83_test_folder_entry_result.unwrap();
-                let file_path = dir_entry.path();
-
-                test_sm83_file(&file_path);
-            }
+        macro_rules! create_sm83_test {
+            ($test_name: ident, $file_path_str: expr) => {
+                #[test]
+                fn $test_name() {
+                    test_sm83_file($file_path_str)
+                }
+            };
         }
+
+        include!(concat!(env!("OUT_DIR"), "/sm83_tests.rs"));
     }
 }
