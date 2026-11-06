@@ -15,6 +15,10 @@ fn create_sm83_tests() {
         let sm83_test_folder_entry = sm83_test_folder_entry_result.unwrap();
         let file_path = sm83_test_folder_entry.path().canonicalize().unwrap();
 
+        if file_path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+
         // "01.json" -> "sm83_01", "cb 40.json" -> "sm83_cb_40"
         let stem = file_path.file_stem().unwrap().to_str().unwrap();
         let test_name: String = format!(
