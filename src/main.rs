@@ -32,7 +32,7 @@ fn main() {
 
             let mut cpu = Cpu::new(memory);
 
-            cpu.run();
+            cpu.run().unwrap();
 
             println!("{:?}", cpu)
         }

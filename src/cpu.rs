@@ -3,7 +3,17 @@
 use core::{fmt, panic};
 use std::fmt::Debug;
 
-use crate::memory_bus::MemoryBus;
+use crate::{
+    cpu::InstructionHandelingError::{InstructionNotImplemented, UnknownOpCode, UnknownOpType},
+    memory_bus::MemoryBus,
+};
+
+#[derive(Debug, PartialEq)]
+pub enum InstructionHandelingError {
+    InstructionNotImplemented(u8),
+    UnknownOpCode(u8),
+    UnknownOpType(u8),
+}
 
 #[derive(Debug, Default)]
 pub struct Type0InstructionHandler {}
@@ -14,8 +24,8 @@ impl Type0InstructionHandler {
         instruction: u8,
         cycle_counter: &mut u64,
         registers: &mut Registers,
-    ) {
-        println!("Type 0 instruction: {instruction:08b}");
+    ) -> Result<(), InstructionHandelingError> {
+        Err(InstructionNotImplemented(instruction))
     }
 }
 
@@ -30,7 +40,7 @@ impl Type1InstructionHandler {
         registers: &mut Registers,
         memory: &mut impl MemoryBus,
         is_halting: &mut bool,
-    ) {
+    ) -> Result<(), InstructionHandelingError> {
         println!("Type 1 instruction: {instruction:08b}");
 
         // if destination_register and source_register == [hl]
@@ -38,7 +48,8 @@ impl Type1InstructionHandler {
             // halt
             println!("halt");
             *cycle_counter += 1;
-            *is_halting = true
+            *is_halting = true;
+            Ok(())
         } else {
             // ld r8, r8
             println!("ld r8, r8");
@@ -53,6 +64,7 @@ impl Type1InstructionHandler {
             }
 
             registers.set_r8_register_value(destination_register, source_register_value, memory);
+            Ok(())
         }
     }
 }
@@ -67,7 +79,7 @@ impl Type2InstructionHandler {
         cycle_counter: &mut u64,
         registers: &mut Registers,
         memory: &impl MemoryBus,
-    ) {
+    ) -> Result<(), InstructionHandelingError> {
         println!("Type 2 instruction: {instruction:08b}");
         let op_code: u8 = (instruction & 0b11111000) >> 3;
         let operand: u8 = instruction & 0b00000111;
@@ -87,7 +99,8 @@ impl Type2InstructionHandler {
                 println!("add a, r8");
                 *cycle_counter += 1;
                 registers.a = old_a_value.wrapping_add(r8_register_value);
-                registers.set_add_flags(old_a_value, r8_register_value, 0)
+                registers.set_add_flags(old_a_value, r8_register_value, 0);
+                Ok(())
             }
             0b10001 => {
                 // adc a, r8
@@ -101,14 +114,16 @@ impl Type2InstructionHandler {
                 registers.a = old_a_value
                     .wrapping_add(r8_register_value)
                     .wrapping_add(carry_value);
-                registers.set_add_flags(old_a_value, r8_register_value, carry_value)
+                registers.set_add_flags(old_a_value, r8_register_value, carry_value);
+                Ok(())
             }
             0b10010 => {
                 // sub a, r8
                 println!("sub a, r8");
                 *cycle_counter += 1;
                 registers.a = old_a_value.wrapping_sub(r8_register_value);
-                registers.set_sub_flags(old_a_value, r8_register_value, 0)
+                registers.set_sub_flags(old_a_value, r8_register_value, 0);
+                Ok(())
             }
             0b10011 => {
                 // sbc a, r8
@@ -122,36 +137,41 @@ impl Type2InstructionHandler {
                 registers.a = old_a_value
                     .wrapping_sub(r8_register_value)
                     .wrapping_sub(carry_value);
-                registers.set_sub_flags(old_a_value, r8_register_value, carry_value)
+                registers.set_sub_flags(old_a_value, r8_register_value, carry_value);
+                Ok(())
             }
             0b10100 => {
                 // and , r8
                 println!("and a, r8");
                 *cycle_counter += 1;
                 registers.a &= r8_register_value;
-                registers.set_logical_flags(registers.a, true)
+                registers.set_logical_flags(registers.a, true);
+                Ok(())
             }
             0b10101 => {
                 // xor a, r8
                 println!("xor a, r8");
                 *cycle_counter += 1;
                 registers.a ^= r8_register_value;
-                registers.set_logical_flags(registers.a, false)
+                registers.set_logical_flags(registers.a, false);
+                Ok(())
             }
             0b10110 => {
                 // or a, r8
                 println!("or a, r8");
                 *cycle_counter += 1;
                 registers.a |= r8_register_value;
-                registers.set_logical_flags(registers.a, false)
+                registers.set_logical_flags(registers.a, false);
+                Ok(())
             }
             0b10111 => {
                 // cp a, r8
                 println!("cp a, r8");
                 *cycle_counter += 1;
-                registers.set_sub_flags(old_a_value, r8_register_value, 0)
+                registers.set_sub_flags(old_a_value, r8_register_value, 0);
+                Ok(())
             }
-            _ => panic!("Unknown op_code"),
+            _ => Err(UnknownOpCode(op_code)),
         }
     }
 }
@@ -166,13 +186,13 @@ impl Type3InstructionHandler {
         cycle_counter: &mut u64,
         registers: &mut Registers,
         memory: &mut impl MemoryBus,
-    ) {
+    ) -> Result<(), InstructionHandelingError> {
         println!("Type 3 instruction: {instruction:08b}");
 
         let old_a_value: u8 = registers.a;
 
-        // First sub block operations (a operations)
         match instruction {
+            // ===== a, imm8 operations =====
             0b11000110 => {
                 // add a, imm8
                 println!("add a, imm8");
@@ -183,6 +203,7 @@ impl Type3InstructionHandler {
 
                 registers.a = old_a_value.wrapping_add(n);
                 registers.set_add_flags(old_a_value, n, 0);
+                Ok(())
             }
             0b11001110 => {
                 // adc a, imm8
@@ -199,6 +220,7 @@ impl Type3InstructionHandler {
                 };
                 registers.a = old_a_value.wrapping_add(n).wrapping_add(carry_value);
                 registers.set_add_flags(old_a_value, n, carry_value);
+                Ok(())
             }
             0b11010110 => {
                 // sub a, imm8
@@ -210,6 +232,7 @@ impl Type3InstructionHandler {
 
                 registers.a = old_a_value.wrapping_sub(n);
                 registers.set_sub_flags(old_a_value, n, 0);
+                Ok(())
             }
             0b11011110 => {
                 // sbc a, imm8
@@ -226,9 +249,10 @@ impl Type3InstructionHandler {
                 };
                 registers.a = old_a_value.wrapping_sub(n).wrapping_sub(carry_value);
                 registers.set_sub_flags(old_a_value, n, carry_value);
+                Ok(())
             }
             0b11100110 => {
-                // and a,imm8
+                // and a, imm8
                 println!("and a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
@@ -237,6 +261,7 @@ impl Type3InstructionHandler {
 
                 registers.a &= n;
                 registers.set_logical_flags(registers.a, true);
+                Ok(())
             }
             0b11101110 => {
                 // xor a, imm8
@@ -248,6 +273,7 @@ impl Type3InstructionHandler {
 
                 registers.a ^= n;
                 registers.set_logical_flags(registers.a, false);
+                Ok(())
             }
             0b11110110 => {
                 // or a, imm8
@@ -259,6 +285,7 @@ impl Type3InstructionHandler {
 
                 registers.a |= n;
                 registers.set_logical_flags(registers.a, false);
+                Ok(())
             }
             0b11111110 => {
                 // cp a, imm8
@@ -269,16 +296,11 @@ impl Type3InstructionHandler {
                 *cycle_counter += 1;
 
                 registers.set_sub_flags(old_a_value, n, 0);
+                Ok(())
             }
-            _ => {}
-        }
 
-        // second sub block operations
-
-        // conditional operations
-        let conditional_op_code: u8 = instruction & 0b11100111;
-        match conditional_op_code {
-            0b11000000 => {
+            // ===== Control flow =====
+            _ if instruction & 0b11100111 == 0b11000000 => {
                 // ret cond
                 println!("ret cond");
                 *cycle_counter += 1;
@@ -299,8 +321,13 @@ impl Type3InstructionHandler {
                 } else {
                     *cycle_counter += 1
                 }
+                Ok(())
             }
-            0b11000010 => {
+            // ret
+            0b11001001 => Err(InstructionNotImplemented(instruction)),
+            // reti
+            0b11011001 => Err(InstructionNotImplemented(instruction)),
+            _ if instruction & 0b11100111 == 0b11000010 => {
                 // jp cond, imm16
                 println!("jp cond, imm16");
                 *cycle_counter += 1;
@@ -318,8 +345,13 @@ impl Type3InstructionHandler {
                     *cycle_counter += 1;
                     registers.pc = ((nn_msb as u16) << 8) | nn_lsb as u16;
                 }
+                Ok(())
             }
-            0b11000100 => {
+            // jp imm16
+            0b11000011 => Err(InstructionNotImplemented(instruction)),
+            // jp hl
+            0b11101001 => Err(InstructionNotImplemented(instruction)),
+            _ if instruction & 0b11100111 == 0b11000100 => {
                 // call cond, imm16
                 println!("call cond, imm16");
                 *cycle_counter += 1;
@@ -347,44 +379,37 @@ impl Type3InstructionHandler {
                     registers.pc = ((nn_msb as u16) << 8) | nn_lsb as u16;
                     *cycle_counter += 1
                 }
+                Ok(())
             }
-            _ => {}
-        }
+            // call imm16
+            0b11001101 => Err(InstructionNotImplemented(instruction)),
+            _ if instruction & 0b11000111 == 0b11000111 => {
+                // rst tgt3
+                println!("rst tgt3");
+                *cycle_counter += 1;
 
-        // target operation
-        let target_op_code: u8 = instruction & 0b11000111;
-        if target_op_code == 0b11000111 {
-            // rst tgt3
-            println!("rst tgt3");
-            *cycle_counter += 1;
+                let target: u8 = (instruction & 0b00111000) >> 3;
+                registers.sp = registers.sp.wrapping_sub(1);
+                *cycle_counter += 1;
 
-            let target: u8 = (instruction & 0b00111000) >> 3;
-            registers.sp = registers.sp.wrapping_sub(1);
-            *cycle_counter += 1;
+                let pc_msb: u8 = ((registers.pc & 0b1111111100000000) >> 8) as u8;
+                memory.write_byte(registers.sp, pc_msb);
+                registers.sp = registers.sp.wrapping_sub(1);
+                *cycle_counter += 1;
 
-            let pc_msb: u8 = ((registers.pc & 0b1111111100000000) >> 8) as u8;
-            memory.write_byte(registers.sp, pc_msb);
-            registers.sp = registers.sp.wrapping_sub(1);
-            *cycle_counter += 1;
+                let pc_lsb: u8 = (registers.pc & 0b0000000011111111) as u8;
+                memory.write_byte(registers.sp, pc_lsb);
+                registers.pc = (target as u16) * 8;
+                *cycle_counter += 1;
+                Ok(())
+            }
 
-            let pc_lsb: u8 = (registers.pc & 0b0000000011111111) as u8;
-            memory.write_byte(registers.sp, pc_lsb);
-            registers.pc = (target as u16) * 8;
-            *cycle_counter += 1
-        }
-
-        // other sub block 2 operations
-        // TODO:
-
-        // 3rd block operations (register operations)
-        let register_op_code: u8 = instruction & 0b11001111;
-        let register_bits: u8 = (instruction & 0b00110000) >> 4;
-
-        match register_op_code {
-            0b11000001 => {
+            // ===== Stack operations (r16stk) =====
+            _ if instruction & 0b11001111 == 0b11000001 => {
                 // pop r16stk
                 println!("pop r16stk");
                 *cycle_counter += 1;
+                let register_bits: u8 = (instruction & 0b00110000) >> 4;
 
                 let lsb: u8 = memory.read_byte(registers.sp);
                 registers.sp = registers.sp.wrapping_add(1);
@@ -396,11 +421,13 @@ impl Type3InstructionHandler {
 
                 let new_register_value: u16 = ((msb as u16) << 8) | lsb as u16;
                 registers.set_r16_register_stack_value(register_bits, new_register_value);
+                Ok(())
             }
-            0b11000101 => {
+            _ if instruction & 0b11001111 == 0b11000101 => {
                 // push r16stk
                 println!("push r16stk");
                 *cycle_counter += 1;
+                let register_bits: u8 = (instruction & 0b00110000) >> 4;
 
                 registers.sp = registers.sp.wrapping_sub(1);
                 *cycle_counter += 1;
@@ -414,10 +441,44 @@ impl Type3InstructionHandler {
                 registers.sp = registers.sp.wrapping_sub(1);
                 memory.write_byte(registers.sp, register_value_lsb);
                 *cycle_counter += 1;
+                Ok(())
             }
-            _ => {}
+
+            // ===== Prefix =====
+            // CB prefix
+            0b11001011 => Err(InstructionNotImplemented(instruction)),
+
+            // ===== Memory / a operations =====
+            // ldh [c], a
+            0b11100010 => Err(InstructionNotImplemented(instruction)),
+            // ldh [imm8], a
+            0b11100000 => Err(InstructionNotImplemented(instruction)),
+            // ld [imm16], a
+            0b11101010 => Err(InstructionNotImplemented(instruction)),
+            // ldh a, [c]
+            0b11110010 => Err(InstructionNotImplemented(instruction)),
+            // ldh a, [imm8]
+            0b11110000 => Err(InstructionNotImplemented(instruction)),
+            // ld a, [imm16]
+            0b11111010 => Err(InstructionNotImplemented(instruction)),
+
+            // ===== sp operations =====
+            // add sp, imm8
+            0b11101000 => Err(InstructionNotImplemented(instruction)),
+            // ld hl, sp + imm8
+            0b11111000 => Err(InstructionNotImplemented(instruction)),
+            // ld sp, hl
+            0b11111001 => Err(InstructionNotImplemented(instruction)),
+
+            // ===== Misc =====
+            // di
+            0b11110011 => Err(InstructionNotImplemented(instruction)),
+            // ei
+            0b11111011 => Err(InstructionNotImplemented(instruction)),
+
+            // Illegal opcodes: 0xD3, 0xDB, 0xDD, 0xE3, 0xE4, 0xEB, 0xEC, 0xED, 0xF4, 0xFC, 0xFD
+            _ => Err(UnknownOpCode(instruction)),
         }
-        // TODO: Prefix and remaining operation sub blocks
     }
 }
 
@@ -689,7 +750,7 @@ impl<MB: MemoryBus> Cpu<MB> {
             type3_instruction_handler: Type3InstructionHandler::default(),
         }
     }
-    fn handle_instruction(&mut self, instruction: u8) {
+    fn handle_instruction(&mut self, instruction: u8) -> Result<(), InstructionHandelingError> {
         let op_type: u8 = instruction >> 6;
         match op_type {
             0b00 => self.type0_instruction_handler.handle_instruction(
@@ -719,24 +780,24 @@ impl<MB: MemoryBus> Cpu<MB> {
                 &mut self.registers,
                 &mut self.memory_bus,
             ),
-            _ => panic!("Unknown operation type"),
+            _ => Err(UnknownOpType(op_type)),
         }
     }
 
-    fn step(&mut self) {
+    fn step(&mut self) -> Result<(), InstructionHandelingError> {
         let current_instruction: u8 = self.memory_bus.read_byte(self.registers.pc);
         self.registers.pc = self.registers.pc.wrapping_add(1);
-        self.handle_instruction(current_instruction);
+        self.handle_instruction(current_instruction)
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> Result<(), InstructionHandelingError> {
         loop {
             // TODO Change when interrupts are done
             if self.is_halting {
-                break;
+                return Ok(());
             }
 
-            self.step();
+            self.step()?
         }
     }
 }
@@ -750,8 +811,7 @@ mod tests {
         use serde::Deserialize;
 
         use crate::{
-            cpu::Cpu,
-            cpu::Registers,
+            cpu::{Cpu, InstructionHandelingError::InstructionNotImplemented, Registers},
             memory_bus::{FlatMemoryBus, MemoryBus},
         };
 
@@ -846,9 +906,17 @@ mod tests {
             for cpu_instruction_test in cpu_instruction_tests {
                 let mut cpu = cpu_instruction_test.initial_state.to_cpu();
 
-                cpu.step();
+                match cpu.step() {
+                    Ok(()) => cpu_instruction_test.assert_matches(&cpu),
+                    Err(error) => {
+                        assert!(
+                            matches!(error, InstructionNotImplemented(_)),
+                            "Unexpected error: {error:?}"
+                        );
 
-                cpu_instruction_test.assert_matches(&cpu);
+                        return;
+                    }
+                }
             }
         }
 
