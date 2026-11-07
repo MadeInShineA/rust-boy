@@ -15,8 +15,17 @@ use crate::memory_bus::MemoryBus;
 // FF00-FF7F   I/O registers        Joypad, serial, timer, sound, LCD...
 // FF80-FFFE   HRAM                 High RAM (stack usually lives here)
 // FFFF        IE                   Interrupt enable register
+
 pub struct FlatMemoryBus {
     bytes: [u8; 0x10000],
+}
+
+impl Default for FlatMemoryBus {
+    fn default() -> Self {
+        Self {
+            bytes: [0; 0x10000],
+        }
+    }
 }
 
 impl fmt::Debug for FlatMemoryBus {

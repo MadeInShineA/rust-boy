@@ -421,15 +421,16 @@ impl Type3InstructionHandler {
     }
 }
 
+#[cfg_attr(test, derive(serde::Deserialize, PartialEq, Clone))]
 pub struct Registers {
     sp: u16,
     pc: u16,
     a: u8,
-    f: u8,
     b: u8,
     c: u8,
     d: u8,
     e: u8,
+    f: u8,
     h: u8,
     l: u8,
 }
@@ -455,7 +456,7 @@ impl fmt::Debug for Registers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "AF:  {:08b} {:08b}\nBC:  {:08b} {:08b}\nDE:  {:08b} {:08b}\nHL:  {:08b} {:08b}\nSP:  {:016b}\nPC:  {:016b}",
+            "AF:  {:02X} {:08b}\nBC:  {:02X} {:02X}\nDE:  {:02X} {:02X}\nHL:  {:02X} {:02X}\nSP:  {:04X}\nPC:  {:04X}",
             self.a, self.f, self.b, self.c, self.d, self.e, self.h, self.l, self.sp, self.pc
         )
     }
@@ -744,12 +745,15 @@ impl<MB: MemoryBus> Cpu<MB> {
 mod tests {
 
     mod sm83 {
-        use std::{
-            fs,
-            path::{Path, PathBuf},
-        };
+        use std::fs;
 
         use serde::Deserialize;
+
+        use crate::{
+            cpu::Cpu,
+            cpu::Registers,
+            memory_bus::{FlatMemoryBus, MemoryBus},
+        };
 
         #[derive(Deserialize)]
         struct RamEntry(
@@ -761,19 +765,28 @@ mod tests {
 
         #[derive(Deserialize)]
         struct CpuState {
-            sp: u16,
-            pc: u16,
-            a: u8,
-            f: u8,
-            b: u8,
-            c: u8,
-            d: u8,
-            e: u8,
-            h: u8,
-            l: u8,
+            #[serde(flatten)]
+            registers: Registers,
             ime: u8,
             ie: Option<u8>,
             ram: Vec<RamEntry>,
+        }
+
+        impl CpuState {
+            // TODO Handle ime and ie
+            fn to_cpu(&self) -> Cpu<FlatMemoryBus> {
+                let mut flat_memory = FlatMemoryBus::default();
+
+                for &RamEntry(address, byte) in &self.ram {
+                    flat_memory.write_byte(address, byte);
+                }
+
+                let mut cpu = Cpu::new(flat_memory);
+
+                cpu.registers = self.registers.clone();
+
+                cpu
+            }
         }
 
         #[derive(Deserialize)]
@@ -787,7 +800,7 @@ mod tests {
         );
 
         #[derive(Deserialize)]
-        struct CpuInstructionTests {
+        struct CpuInstructionTest {
             name: String,
 
             #[serde(rename = "initial")]
@@ -798,12 +811,45 @@ mod tests {
             cycles: Vec<CpuCycle>,
         }
 
-        fn test_sm83_file(sm83_test_file_path_str: &str) {
-            let sm83_test_file_path = Path::new(sm83_test_file_path_str);
-            let cpu_instruction_tests: Vec<CpuInstructionTests> =
-                serde_json::from_str(&fs::read_to_string(sm83_test_file_path).unwrap()).unwrap();
+        impl CpuInstructionTest {
+            // TODO Check the CpuCycles in more details
+            fn assert_matches(&self, cpu: &Cpu<FlatMemoryBus>) {
+                let test_name = &self.name;
 
-            println!("Loaded test {}", cpu_instruction_tests[0].name);
+                assert_eq!(
+                    self.final_state.registers, cpu.registers,
+                    "{test_name}: registers differ (left: expected, right: actual)"
+                );
+
+                for &RamEntry(address, value) in &self.final_state.ram {
+                    let cpu_memory_value = cpu.memory_bus.read_byte(address);
+
+                    assert_eq!(
+                        value, cpu_memory_value,
+                        "{test_name}: memory at {address:#06X} differs (expected {value:#04X}, got {cpu_memory_value:#04X})"
+                    );
+                }
+
+                assert_eq!(
+                    self.cycles.len() as u64,
+                    cpu.cycle_counter,
+                    "{test_name}: cycle counter differ (left: expected, right: actual)"
+                );
+            }
+        }
+
+        fn test_sm83_file(sm83_test_file_path_str: &str) {
+            let cpu_instruction_tests: Vec<CpuInstructionTest> =
+                serde_json::from_str(&fs::read_to_string(sm83_test_file_path_str).unwrap())
+                    .unwrap();
+
+            for cpu_instruction_test in cpu_instruction_tests {
+                let mut cpu = cpu_instruction_test.initial_state.to_cpu();
+
+                cpu.step();
+
+                cpu_instruction_test.assert_matches(&cpu);
+            }
         }
 
         macro_rules! create_sm83_test {
