@@ -1,3 +1,4 @@
 /target
 .direnv/
 tests/sm83
+.cargo

@@ -806,7 +806,7 @@ impl<MB: MemoryBus> Cpu<MB> {
 mod tests {
 
     mod sm83 {
-        use std::fs;
+        use std::{env, fs};
 
         use serde::Deserialize;
 
@@ -903,6 +903,10 @@ mod tests {
                 serde_json::from_str(&fs::read_to_string(sm83_test_file_path_str).unwrap())
                     .unwrap();
 
+            // RUST_BOY_PASS_NOT_IMPLEMENTED=1 makes not implemented instructions pass instead of fail
+            let pass_not_implemented: bool =
+                env::var("RUST_BOY_PASS_NOT_IMPLEMENTED").is_ok_and(|value| value == "1");
+
             for cpu_instruction_test in cpu_instruction_tests {
                 let mut cpu = cpu_instruction_test.initial_state.to_cpu();
 
@@ -910,8 +914,8 @@ mod tests {
                     Ok(()) => cpu_instruction_test.assert_matches(&cpu),
                     Err(error) => {
                         assert!(
-                            matches!(error, InstructionNotImplemented(_)),
-                            "Unexpected error: {error:?}"
+                            pass_not_implemented && matches!(error, InstructionNotImplemented(_)),
+                            "Unexpected error: {error:?} (set RUST_BOY_PASS_NOT_IMPLEMENTED=1 to make not implemented errors pass)"
                         );
 
                         return;
