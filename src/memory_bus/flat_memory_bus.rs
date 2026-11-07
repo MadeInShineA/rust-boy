@@ -1,6 +1,8 @@
 // Memory map is based on https://gbdev.io/pandocs/Memory_Map.html
 use std::fmt;
 
+use crate::memory_bus::MemoryBus;
+
 // 0000-3FFF   ROM bank 00          Cartridge, fixed bank
 // 4000-7FFF   ROM bank 01-NN       Cartridge, switchable bank (via MBC)
 // 8000-9FFF   VRAM                 Video RAM (tiles and tile maps)
@@ -13,19 +15,11 @@ use std::fmt;
 // FF00-FF7F   I/O registers        Joypad, serial, timer, sound, LCD...
 // FF80-FFFE   HRAM                 High RAM (stack usually lives here)
 // FFFF        IE                   Interrupt enable register
-pub struct Memory {
+pub struct FlatMemoryBus {
     bytes: [u8; 0x10000],
 }
 
-impl Default for Memory {
-    fn default() -> Self {
-        Self {
-            bytes: [0; 0x10000],
-        }
-    }
-}
-
-impl fmt::Debug for Memory {
+impl fmt::Debug for FlatMemoryBus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (row, chunk) in self.bytes.chunks(16).enumerate() {
             write!(f, "{:04X}: ", row * 16)?;
@@ -38,15 +32,18 @@ impl fmt::Debug for Memory {
     }
 }
 
-impl Memory {
-    pub fn new(bytes: [u8; 0x10000]) -> Memory {
-        Memory { bytes }
-    }
-    pub fn read_byte(&self, address: u16) -> u8 {
+impl MemoryBus for FlatMemoryBus {
+    fn read_byte(&self, address: u16) -> u8 {
         self.bytes[address as usize]
     }
 
-    pub fn write_byte(&mut self, address: u16, value: u8) {
+    fn write_byte(&mut self, address: u16, value: u8) {
         self.bytes[address as usize] = value
+    }
+}
+
+impl FlatMemoryBus {
+    pub fn new(bytes: [u8; 0x10000]) -> FlatMemoryBus {
+        FlatMemoryBus { bytes }
     }
 }

@@ -5,8 +5,8 @@ use std::{env, fs::File, io::Read};
 mod cpu;
 use cpu::Cpu;
 
-mod memory;
-use memory::Memory;
+mod memory_bus;
+use crate::memory_bus::FlatMemoryBus;
 
 fn main() {
     let arguments: Vec<String> = env::args().collect();
@@ -28,9 +28,9 @@ fn main() {
             let mut loaded_file = [0; 0x10000];
             loaded_file[..file_size].copy_from_slice(&file_content);
 
-            let memory = Memory::new(loaded_file);
+            let memory = FlatMemoryBus::new(loaded_file);
 
-            let mut cpu: Cpu = Cpu::new(memory);
+            let mut cpu = Cpu::new(memory);
 
             cpu.run();
 

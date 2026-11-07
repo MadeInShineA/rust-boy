@@ -3,7 +3,7 @@
 use core::{fmt, panic};
 use std::fmt::Debug;
 
-use crate::memory::Memory;
+use crate::memory_bus::MemoryBus;
 
 #[derive(Debug, Default)]
 pub struct Type0InstructionHandler {}
@@ -28,7 +28,7 @@ impl Type1InstructionHandler {
         instruction: u8,
         cycle_counter: &mut u64,
         registers: &mut Registers,
-        memory: &mut Memory,
+        memory: &mut impl MemoryBus,
         is_halting: &mut bool,
     ) {
         println!("Type 1 instruction: {instruction:08b}");
@@ -66,7 +66,7 @@ impl Type2InstructionHandler {
         instruction: u8,
         cycle_counter: &mut u64,
         registers: &mut Registers,
-        memory: &Memory,
+        memory: &impl MemoryBus,
     ) {
         println!("Type 2 instruction: {instruction:08b}");
         let op_code: u8 = (instruction & 0b11111000) >> 3;
@@ -165,7 +165,7 @@ impl Type3InstructionHandler {
         instruction: u8,
         cycle_counter: &mut u64,
         registers: &mut Registers,
-        memory: &mut Memory,
+        memory: &mut impl MemoryBus,
     ) {
         println!("Type 3 instruction: {instruction:08b}");
 
@@ -466,7 +466,7 @@ impl Registers {
         ((self.h as u16) << 8) | self.l as u16
     }
 
-    fn get_r8_register_value(&self, register_bits: u8, memory: &Memory) -> (u8, bool) {
+    fn get_r8_register_value(&self, register_bits: u8, memory: &impl MemoryBus) -> (u8, bool) {
         let was_hl_loaded: bool = register_bits == 0b110;
         let register_value: u8 = match register_bits {
             0b000 => self.b,
@@ -486,7 +486,7 @@ impl Registers {
         (register_value, was_hl_loaded)
     }
 
-    fn set_r8_register_value(&mut self, register_bits: u8, value: u8, memory: &mut Memory) {
+    fn set_r8_register_value(&mut self, register_bits: u8, value: u8, memory: &mut impl MemoryBus) {
         match register_bits {
             0b000 => self.b = value,
             0b001 => self.c = value,
@@ -654,33 +654,38 @@ enum Flags {
     Z = 0b10000000, // Zero flag
 }
 
-#[derive(Default)]
-pub struct Cpu {
+pub struct Cpu<MB: MemoryBus> {
     is_halting: bool,
     cycle_counter: u64,
     registers: Registers,
-    memory: Memory,
+    memory_bus: MB,
     type0_instruction_handler: Type0InstructionHandler,
     type1_instruction_handler: Type1InstructionHandler,
     type2_instruction_handler: Type2InstructionHandler,
     type3_instruction_handler: Type3InstructionHandler,
 }
 
-impl Debug for Cpu {
+impl<MB: MemoryBus + Debug> Debug for Cpu<MB> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
-            "========== CPU ==========\n===== Registers =====\n{:?}\n===== Memory =====\n{:?}",
-            self.registers, self.memory
+            "========== CPU ==========\n===== Registers =====\n{:?}\n===== Memory Bus =====\n{:?}",
+            self.registers, self.memory_bus
         )
     }
 }
 
-impl Cpu {
-    pub fn new(memory: Memory) -> Cpu {
+impl<MB: MemoryBus> Cpu<MB> {
+    pub fn new(memory_bus: MB) -> Cpu<MB> {
         Cpu {
-            memory,
-            ..Default::default()
+            is_halting: false,
+            cycle_counter: 0,
+            registers: Registers::default(),
+            memory_bus,
+            type0_instruction_handler: Type0InstructionHandler::default(),
+            type1_instruction_handler: Type1InstructionHandler::default(),
+            type2_instruction_handler: Type2InstructionHandler::default(),
+            type3_instruction_handler: Type3InstructionHandler::default(),
         }
     }
     fn handle_instruction(&mut self, instruction: u8) {
@@ -696,7 +701,7 @@ impl Cpu {
                 instruction,
                 &mut self.cycle_counter,
                 &mut self.registers,
-                &mut self.memory,
+                &mut self.memory_bus,
                 &mut self.is_halting,
             ),
 
@@ -704,21 +709,21 @@ impl Cpu {
                 instruction,
                 &mut self.cycle_counter,
                 &mut self.registers,
-                &self.memory,
+                &self.memory_bus,
             ),
 
             0b11 => self.type3_instruction_handler.handle_instruction(
                 instruction,
                 &mut self.cycle_counter,
                 &mut self.registers,
-                &mut self.memory,
+                &mut self.memory_bus,
             ),
             _ => panic!("Unknown operation type"),
         }
     }
 
     fn step(&mut self) {
-        let current_instruction: u8 = self.memory.read_byte(self.registers.pc);
+        let current_instruction: u8 = self.memory_bus.read_byte(self.registers.pc);
         self.registers.pc = self.registers.pc.wrapping_add(1);
         self.handle_instruction(current_instruction);
     }
@@ -809,7 +814,6 @@ mod tests {
                 }
             };
         }
-
         include!(concat!(env!("OUT_DIR"), "/sm83_tests.rs"));
     }
 }
