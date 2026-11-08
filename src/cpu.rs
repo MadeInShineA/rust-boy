@@ -18,6 +18,14 @@ pub enum InstructionHandelingError {
 #[derive(Debug, Default)]
 pub struct Type0InstructionHandler {}
 
+macro_rules! test_println {
+    ($($arg:tt)*) => {
+        if cfg!(test) {
+            println!($($arg)*)
+        }
+    };
+}
+
 impl Type0InstructionHandler {
     fn handle_instruction(
         &self,
@@ -41,18 +49,18 @@ impl Type1InstructionHandler {
         memory: &mut impl MemoryBus,
         is_halting: &mut bool,
     ) -> Result<(), InstructionHandelingError> {
-        println!("Type 1 instruction: {instruction:08b}");
+        test_println!("Type 1 instruction: {instruction:08b}");
 
         // if destination_register and source_register == [hl]
         if instruction == 0b01110110 {
             // halt
-            println!("halt");
+            test_println!("halt");
             *cycle_counter += 1;
             *is_halting = true;
             Ok(())
         } else {
             // ld r8, r8
-            println!("ld r8, r8");
+            test_println!("ld r8, r8");
             *cycle_counter += 1;
             let destination_register: u8 = (instruction & 0b00111000) >> 3;
             let source_register_bits: u8 = instruction & 0b00000111;
@@ -80,11 +88,11 @@ impl Type2InstructionHandler {
         registers: &mut Registers,
         memory: &impl MemoryBus,
     ) -> Result<(), InstructionHandelingError> {
-        println!("Type 2 instruction: {instruction:08b}");
+        test_println!("Type 2 instruction: {instruction:08b}");
         let op_code: u8 = (instruction & 0b11111000) >> 3;
         let operand: u8 = instruction & 0b00000111;
 
-        println!("Op code: {op_code:05b} Operand: {operand:03b}");
+        test_println!("Op code: {op_code:05b} Operand: {operand:03b}");
         let (r8_register_value, was_hl_loaded) = registers.get_r8_register_value(operand, memory);
 
         if was_hl_loaded {
@@ -96,7 +104,7 @@ impl Type2InstructionHandler {
         match op_code {
             0b10000 => {
                 // add a, r8
-                println!("add a, r8");
+                test_println!("add a, r8");
                 *cycle_counter += 1;
                 registers.a = old_a_value.wrapping_add(r8_register_value);
                 registers.set_add_flags(old_a_value, r8_register_value, 0);
@@ -104,7 +112,7 @@ impl Type2InstructionHandler {
             }
             0b10001 => {
                 // adc a, r8
-                println!("adc a, r8");
+                test_println!("adc a, r8");
                 *cycle_counter += 1;
                 let carry_value: u8 = if registers.f & Flags::C as u8 != 0 {
                     1
@@ -119,7 +127,7 @@ impl Type2InstructionHandler {
             }
             0b10010 => {
                 // sub a, r8
-                println!("sub a, r8");
+                test_println!("sub a, r8");
                 *cycle_counter += 1;
                 registers.a = old_a_value.wrapping_sub(r8_register_value);
                 registers.set_sub_flags(old_a_value, r8_register_value, 0);
@@ -127,7 +135,7 @@ impl Type2InstructionHandler {
             }
             0b10011 => {
                 // sbc a, r8
-                println!("sbc a, r8");
+                test_println!("sbc a, r8");
                 *cycle_counter += 1;
                 let carry_value: u8 = if registers.f & Flags::C as u8 != 0 {
                     1
@@ -142,7 +150,7 @@ impl Type2InstructionHandler {
             }
             0b10100 => {
                 // and , r8
-                println!("and a, r8");
+                test_println!("and a, r8");
                 *cycle_counter += 1;
                 registers.a &= r8_register_value;
                 registers.set_logical_flags(registers.a, true);
@@ -150,7 +158,7 @@ impl Type2InstructionHandler {
             }
             0b10101 => {
                 // xor a, r8
-                println!("xor a, r8");
+                test_println!("xor a, r8");
                 *cycle_counter += 1;
                 registers.a ^= r8_register_value;
                 registers.set_logical_flags(registers.a, false);
@@ -158,7 +166,7 @@ impl Type2InstructionHandler {
             }
             0b10110 => {
                 // or a, r8
-                println!("or a, r8");
+                test_println!("or a, r8");
                 *cycle_counter += 1;
                 registers.a |= r8_register_value;
                 registers.set_logical_flags(registers.a, false);
@@ -166,7 +174,7 @@ impl Type2InstructionHandler {
             }
             0b10111 => {
                 // cp a, r8
-                println!("cp a, r8");
+                test_println!("cp a, r8");
                 *cycle_counter += 1;
                 registers.set_sub_flags(old_a_value, r8_register_value, 0);
                 Ok(())
@@ -187,7 +195,7 @@ impl Type3InstructionHandler {
         registers: &mut Registers,
         memory: &mut impl MemoryBus,
     ) -> Result<(), InstructionHandelingError> {
-        println!("Type 3 instruction: {instruction:08b}");
+        test_println!("Type 3 instruction: {instruction:08b}");
 
         let old_a_value: u8 = registers.a;
 
@@ -195,7 +203,7 @@ impl Type3InstructionHandler {
             // ===== a, imm8 operations =====
             0b11000110 => {
                 // add a, imm8
-                println!("add a, imm8");
+                test_println!("add a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
@@ -207,7 +215,7 @@ impl Type3InstructionHandler {
             }
             0b11001110 => {
                 // adc a, imm8
-                println!("adc a, imm8");
+                test_println!("adc a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
@@ -224,7 +232,7 @@ impl Type3InstructionHandler {
             }
             0b11010110 => {
                 // sub a, imm8
-                println!("sub a, imm8");
+                test_println!("sub a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
@@ -236,7 +244,7 @@ impl Type3InstructionHandler {
             }
             0b11011110 => {
                 // sbc a, imm8
-                println!("sbc a, imm8");
+                test_println!("sbc a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
@@ -253,7 +261,7 @@ impl Type3InstructionHandler {
             }
             0b11100110 => {
                 // and a, imm8
-                println!("and a, imm8");
+                test_println!("and a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
@@ -265,7 +273,7 @@ impl Type3InstructionHandler {
             }
             0b11101110 => {
                 // xor a, imm8
-                println!("xor a, imm8");
+                test_println!("xor a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
@@ -277,7 +285,7 @@ impl Type3InstructionHandler {
             }
             0b11110110 => {
                 // or a, imm8
-                println!("or a, imm8");
+                test_println!("or a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
@@ -289,7 +297,7 @@ impl Type3InstructionHandler {
             }
             0b11111110 => {
                 // cp a, imm8
-                println!("cp a, imm8");
+                test_println!("cp a, imm8");
                 *cycle_counter += 1;
                 let n: u8 = memory.read_byte(registers.pc);
                 registers.pc = registers.pc.wrapping_add(1);
@@ -302,7 +310,7 @@ impl Type3InstructionHandler {
             // ===== Control flow =====
             _ if instruction & 0b11100111 == 0b11000000 => {
                 // ret cond
-                println!("ret cond");
+                test_println!("ret cond");
                 *cycle_counter += 1;
                 let condition_bits: u8 = (instruction & 0b00011000) >> 3;
 
@@ -329,7 +337,7 @@ impl Type3InstructionHandler {
             0b11011001 => Err(InstructionNotImplemented(instruction)),
             _ if instruction & 0b11100111 == 0b11000010 => {
                 // jp cond, imm16
-                println!("jp cond, imm16");
+                test_println!("jp cond, imm16");
                 *cycle_counter += 1;
                 let condition_bits: u8 = (instruction & 0b00011000) >> 3;
 
@@ -353,7 +361,7 @@ impl Type3InstructionHandler {
             0b11101001 => Err(InstructionNotImplemented(instruction)),
             _ if instruction & 0b11100111 == 0b11000100 => {
                 // call cond, imm16
-                println!("call cond, imm16");
+                test_println!("call cond, imm16");
                 *cycle_counter += 1;
                 let condition_bits: u8 = (instruction & 0b00011000) >> 3;
 
@@ -385,7 +393,7 @@ impl Type3InstructionHandler {
             0b11001101 => Err(InstructionNotImplemented(instruction)),
             _ if instruction & 0b11000111 == 0b11000111 => {
                 // rst tgt3
-                println!("rst tgt3");
+                test_println!("rst tgt3");
                 *cycle_counter += 1;
 
                 let target: u8 = (instruction & 0b00111000) >> 3;
@@ -407,7 +415,7 @@ impl Type3InstructionHandler {
             // ===== Stack operations (r16stk) =====
             _ if instruction & 0b11001111 == 0b11000001 => {
                 // pop r16stk
-                println!("pop r16stk");
+                test_println!("pop r16stk");
                 *cycle_counter += 1;
                 let register_bits: u8 = (instruction & 0b00110000) >> 4;
 
@@ -425,7 +433,7 @@ impl Type3InstructionHandler {
             }
             _ if instruction & 0b11001111 == 0b11000101 => {
                 // push r16stk
-                println!("push r16stk");
+                test_println!("push r16stk");
                 *cycle_counter += 1;
                 let register_bits: u8 = (instruction & 0b00110000) >> 4;
 
