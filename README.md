@@ -1,5 +1,7 @@
 # Rust Boy
 
+[![CPU opcodes](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/MadeInShineA/rust-boy/badges/total.json)](https://github.com/MadeInShineA/rust-boy/actions/workflows/tests.yml)
+
 ## References
 
 ### CPU

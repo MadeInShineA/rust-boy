@@ -1,0 +1,94 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to push badge JSON to the `badges` branch
+
+jobs:
+  sm83:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # tests/sm83 is gitignored, so fetch the SingleStepTests sm83 JSON files
+      - name: Cache sm83 test data
+        id: sm83-cache
+        uses: actions/cache@v4
+        with:
+          path: tests/sm83
+          key: sm83-tests-v1
+
+      - name: Download sm83 test data
+        if: steps.sm83-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/SingleStepTests/sm83.git /tmp/sm83
+          git -C /tmp/sm83 sparse-checkout set v1
+          mkdir -p tests/sm83
+          cp /tmp/sm83/v1/*.json tests/sm83/
+
+      - name: Build tests
+        run: cargo test --no-run
+
+      # Not-implemented instructions count as failing: measures overall progress
+      - name: Run tests
+        id: total
+        env:
+          RUST_BOY_PASS_NOT_IMPLEMENTED: "0"
+        run: |
+          cargo test --no-fail-fast sm83 > total.log 2>&1 || true
+          grep '^test result:' total.log
+          passed=$(grep '^test result:' total.log | grep -oE '[0-9]+ passed' | awk '{s+=$1} END {print s+0}')
+          failed=$(grep '^test result:' total.log | grep -oE '[0-9]+ failed' | awk '{s+=$1} END {print s+0}')
+          echo "passed=$passed" >> "$GITHUB_OUTPUT"
+          echo "total=$((passed + failed))" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          {
+            echo "### sm83 tests"
+            echo "Passed: **${{ steps.total.outputs.passed }}/${{ steps.total.outputs.total }}**"
+            echo
+            echo "<details><summary>Failing tests</summary>"
+            echo
+            echo '```'
+            grep -E '^test .* FAILED$' total.log || echo "none"
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish badges
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOTAL_PASSED: ${{ steps.total.outputs.passed }}
+          TOTAL_TOTAL: ${{ steps.total.outputs.total }}
+        run: |
+          color() { # passed total
+            if [ "$2" -eq 0 ]; then echo lightgrey; return; fi
+            pct=$(( $1 * 100 / $2 ))
+            if   [ "$pct" -ge 100 ]; then echo brightgreen
+            elif [ "$pct" -ge 75 ];  then echo green
+            elif [ "$pct" -ge 50 ];  then echo yellow
+            elif [ "$pct" -ge 25 ];  then echo orange
+            else echo red; fi
+          }
+
+          mkdir badges && cd badges
+          printf '{"schemaVersion":1,"label":"CPU opcodes","message":"%s/%s","color":"%s"}\n' \
+            "$TOTAL_PASSED" "$TOTAL_TOTAL" "$(color "$TOTAL_PASSED" "$TOTAL_TOTAL")" > total.json
+
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -qm "Update badges"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
