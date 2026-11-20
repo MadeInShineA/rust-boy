@@ -1,0 +1,4 @@
+[submodule "tests/sm83"]
+	path = tests/sm83
+	url = https://github.com/SingleStepTests/sm83.git
+	shallow = true
